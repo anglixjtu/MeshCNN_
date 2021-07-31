@@ -1,0 +1,66 @@
+{
+    // 使用 IntelliSense 了解相关属性。 
+    // 悬停以查看现有属性的描述。
+    // 欲了解更多信息，请访问: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+        {
+            "name": "Python: train without pooling",
+            "type": "python",
+            "request": "launch",
+            "program": "train.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataroot",
+                "G:/dataset/MCB_B/MCB_B/",
+                "--train_namelist",
+                "E:/ARIH/3D_modeling/tools/train_10c1000s.txt",
+                "--test_namelist",
+                "E:/ARIH/3D_modeling/tools/test_10c1000s.txt",
+                "--name",
+                "MCB_B_1",
+                "--ncf",
+                "64",
+                "128",
+                "256",
+                "256",
+                "--lr",
+                "0.0002",
+                "--resblocks",
+                "1",
+                "--norm_groups",
+                "16",
+                "--flip_edges",
+                "0.2",
+                "--slide_verts",
+                "0.2",
+                "--num_aug",
+                "20", //20
+                "--niter_decay",
+                "100",
+                "--gpu_ids",
+                "-1",
+                "--num_threads",
+                "4",
+                "--batch_size",
+                "16",
+                "--sample_mesh",
+                "1"
+                // "--which_epoch",
+                // "3",
+                // "--epoch_count",
+                // "3",
+                // "--continue_train",
+                // "false",
+            ]
+        },
+        {
+            "name": "Python: 当前文件",
+            "type": "python",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal"
+        },
+    ]
+}
