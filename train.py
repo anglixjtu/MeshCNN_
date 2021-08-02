@@ -2,8 +2,10 @@ import time
 from data import CreateDataset
 from models import CreateModel
 from options.train_options import TrainOptions
-from torch_geometric.data import Data, DataLoader
+from torch_geometric.data import DataLoader
 from util.writer import Writer
+from test import run_test
+
 
 
 if __name__ == '__main__':
@@ -12,7 +14,7 @@ if __name__ == '__main__':
     dataloader = DataLoader(
     dataset, batch_size=opt.batch_size,#opt.batch_size
             shuffle=True,
-            num_workers=1)#int(opt.num_threads)
+            num_workers=int(opt.num_threads))#int(opt.num_threads)
     dataset_size = len(dataset)
     print('#training meshes = %d' % dataset_size)
 
@@ -58,8 +60,8 @@ if __name__ == '__main__':
         if opt.verbose_plot:
             writer.plot_model_wts(model, epoch)
 
-        '''if epoch % opt.run_test_freq == 0:
+        if epoch % opt.run_test_freq == 0:
             acc = run_test(epoch)
-            writer.plot_acc(acc, epoch)'''
+            writer.plot_acc(acc, epoch)
 
     writer.close()

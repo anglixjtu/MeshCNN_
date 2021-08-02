@@ -4,7 +4,9 @@ from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, BatchNorm, ASAPooling, global_mean_pool
+from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
+from torch_geometric.nn import GCNConv, BatchNorm
+from torch_geometric.nn import ASAPooling, TopKPooling,  PANPooling, SAGPooling, global_mean_pool
 
 
 ###############################################################################
@@ -67,11 +69,17 @@ def init_net(net, init_type, init_gain, gpu_ids):
     return net
 
 
-def define_net(input_nc, ncf, ninput_edges, nclasses, opt, gpu_ids, arch, init_type, init_gain):
+def define_net(input_nc, ncf, ninput_edges, nclasses, opt, gpu_ids, arch, init_type, init_gain, batch_size):
     net = None
 
     if arch == 'mconvnet':
-        net = MeshConvNet(input_nc, ncf, nclasses, ninput_edges, opt.pool_res, opt.fc_n,
+        net = MeshConvNet(input_nc, ncf, nclasses, ninput_edges, opt.pool_res, opt.fc_n, batch_size,
+                          opt.resblocks)
+    elif arch == 'mmlpnet':
+        net = MeshMLPNet(input_nc, ncf, nclasses, ninput_edges, opt.pool_res, opt.fc_n, opt.norm, batch_size,
+                          opt.resblocks)
+    elif arch == 'mmlpl2net':
+        net = MeshMLPL2Net(input_nc, ncf, nclasses, ninput_edges, opt.pool_res, opt.fc_n, opt.norm, batch_size,
                           opt.resblocks)
     else:
         raise NotImplementedError('Encoder model name [%s] is not recognized' % arch)
@@ -88,18 +96,21 @@ def define_loss(opt):
 class MeshConvNet(nn.Module):
     """Network for learning a global shape descriptor (classification)
     """
-    def __init__(self, nf0, conv_res, nclasses, input_res, pool_res, fc_n,
+    def __init__(self, nf0, conv_res, nclasses, input_res, pool_res, fc_n, batch_size,
                  nresblocks=3):
         super(MeshConvNet, self).__init__()
         self.k = [nf0] + conv_res
         self.res = [input_res] + pool_res
+        self.min_score = [0.05, 0.05, 0.05, 0.05]
+        self.ratio = [0.8, 0.6, 0.4, 0.24]
+
 
         for i, ki in enumerate(self.k[:-1]):
-            setattr(self, 'conv{}'.format(i), GCNConv(ki, self.k[i + 1], add_self_loops=False, normalize=True))
+            setattr(self, 'conv{}'.format(i), GCNConv(ki, self.k[i + 1], add_self_loops=True, normalize=True))
             setattr(self, 'norm{}'.format(i), BatchNorm(self.k[i + 1]))
             if pool_res: # define pooling layers or not, added by Ang Li
                 #setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
-                setattr(self, 'pool{}'.format(i), ASAPooling(self.k[i + 1], ratio=self.res[i + 1]))
+                setattr(self, 'pool{}'.format(i),   SAGPooling(self.k[i + 1], ratio=0.8))
 
         # self.gp = torch.nn.MaxPool1d(self.res[-1])
         self.fc1 = nn.Linear(self.k[-1], fc_n)
@@ -107,13 +118,17 @@ class MeshConvNet(nn.Module):
 
     def forward(self, data):
 
-        x, edge_index, batch = data.x, data.edge_index, data.batch
+        x0, edge_index, batch = data.x, data.edge_index, data.batch
 
+
+        x = x0
         for i in range(len(self.k) - 1):
             x = getattr(self, 'conv{}'.format(i))(x, edge_index)
-            x = F.relu(getattr(self, 'norm{}'.format(i))(x))
+            x = F.relu(x)
+            x = getattr(self, 'norm{}'.format(i))(x)
+            #x = F.relu(getattr(self, 'norm{}'.format(i))(x))
             if hasattr(self, 'pool{}'.format(i)):
-                x = getattr(self, 'pool{}'.format(i))(x, edge_index)
+                x, edge_index, _, batch, perm, score = getattr(self, 'pool{}'.format(i))(x, edge_index, None, batch)
 
         x = global_mean_pool(x, batch)
         #x = x.view(-1, self.k[-1])
@@ -122,3 +137,109 @@ class MeshConvNet(nn.Module):
         x = self.fc2(x)
         return x
 
+class MeshMLPNet(nn.Module):
+    """Network for learning a global shape descriptor (classification)
+    """
+    def __init__(self, nf0, conv_res, nclasses, input_res, pool_res, fc_n, norm, batch_size,
+                 nresblocks=3):
+        super(MeshMLPNet, self).__init__()
+        self.k = [nf0] + conv_res
+        self.res = [input_res] + pool_res
+        self.min_score = [0.05, 0.05, 0.05, 0.05]
+        self.ratio = [0.8, 0.6, 0.4, 0.24]
+
+
+        for i, ki in enumerate(self.k[:-1]):
+            setattr(self, 'mlp{}'.format(i), self.MLP(ki, self.k[i + 1], norm))
+            setattr(self, 'conv{}'.format(i), GCNConv(self.k[i + 1], self.k[i + 1], add_self_loops=True, normalize=True))
+            setattr(self, 'norm{}'.format(i), BatchNorm(self.k[i + 1]))
+            if pool_res: # define pooling layers or not, added by Ang Li
+                #setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
+                setattr(self, 'pool{}'.format(i),   SAGPooling(self.k[i + 1], ratio=0.8))
+
+        # self.gp = torch.nn.MaxPool1d(self.res[-1])
+        self.fc1 = nn.Linear(self.k[-1], fc_n)
+        self.fc2 = nn.Linear(fc_n, nclasses)
+
+    def MLP(self, channel_in, channel_out, norm='batch'):
+        if norm=='batch':
+            return Seq(Lin(channel_in, channel_out), ReLU(), BN(channel_out))
+        else:
+            return Seq(Lin(channel_in, channel_out), ReLU())
+    
+
+    def forward(self, data):
+
+        x0, edge_index, batch = data.x, data.edge_index, data.batch
+
+
+        x = x0
+        for i in range(len(self.k) - 1):
+            x = getattr(self, 'mlp{}'.format(i))(x)
+            x = getattr(self, 'conv{}'.format(i))(x, edge_index)
+            x = F.relu(x)
+            x = getattr(self, 'norm{}'.format(i))(x)
+            #x = F.relu(getattr(self, 'norm{}'.format(i))(x))
+            if hasattr(self, 'pool{}'.format(i)):
+                x, edge_index, _, batch, perm, score = getattr(self, 'pool{}'.format(i))(x, edge_index, None, batch)
+
+        x = global_mean_pool(x, batch)
+        #x = x.view(-1, self.k[-1])
+
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)
+        return x
+
+
+class MeshMLPL2Net(nn.Module):
+    """Network for learning a global shape descriptor (classification)
+    """
+    def __init__(self, nf0, conv_res, nclasses, input_res, pool_res, fc_n, norm, batch_size,
+                 nresblocks=3):
+        super(MeshMLPL2Net, self).__init__()
+        self.k = [nf0] + conv_res
+        self.res = [input_res] + pool_res
+        self.min_score = [0.05, 0.05, 0.05, 0.05]
+        self.ratio = [0.8, 0.6, 0.4, 0.24]
+
+
+        for i, ki in enumerate(self.k[:-1]):
+            setattr(self, 'mlp{}'.format(i), self.MLP(ki, self.k[i + 1], norm))
+            setattr(self, 'conv{}'.format(i), GCNConv(self.k[i + 1], self.k[i + 1], add_self_loops=True, normalize=True))
+            setattr(self, 'norm{}'.format(i), BatchNorm(self.k[i + 1]))
+            if pool_res: # define pooling layers or not, added by Ang Li
+                #setattr(self, 'pool{}'.format(i), MeshPool(self.res[i + 1]))
+                setattr(self, 'pool{}'.format(i),   SAGPooling(self.k[i + 1], ratio=0.8))
+
+        # self.gp = torch.nn.MaxPool1d(self.res[-1])
+        self.fc1 = nn.Linear(self.k[-1], fc_n)
+        self.fc2 = nn.Linear(fc_n, nclasses)
+
+    def MLP(self, channel_in, channel_out, norm='batch'):
+        if norm=='batch':
+            return Seq(Lin(channel_in, channel_out), ReLU(), BN(channel_out))
+        else:
+            return Seq(Lin(channel_in, channel_out), ReLU())
+    
+
+    def forward(self, data):
+
+        x0, edge_index, batch = data.x, data.edge_index, data.batch
+
+
+        x = x0
+        for i in range(len(self.k) - 1):
+            x = getattr(self, 'mlp{}'.format(i))(x)
+            x = getattr(self, 'conv{}'.format(i))(x, edge_index)
+            x = F.relu(x)
+            x = getattr(self, 'norm{}'.format(i))(x)
+            #x = F.relu(getattr(self, 'norm{}'.format(i))(x))
+            if hasattr(self, 'pool{}'.format(i)):
+                x, edge_index, _, batch, perm, score = getattr(self, 'pool{}'.format(i))(x, edge_index, None, batch)
+
+        x = global_mean_pool(x, batch)
+        #x = x.view(-1, self.k[-1])
+
+        x = self.fc1(x)
+        x = self.fc2(x)
+        return x

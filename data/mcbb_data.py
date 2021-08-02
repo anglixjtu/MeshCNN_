@@ -29,9 +29,10 @@ class MCBBDataset(Dataset):
         self.mean = 0
         self.std = 1
         self.ninput_channels = None
-        self.get_mean_std(opt) #modified by Ang Li
         opt.nclasses = self.nclasses
         self.opt = opt
+        self.get_mean_std(opt) #modified by Ang Li
+
         # modify for network later.
 
     def len(self):
@@ -109,12 +110,12 @@ class MCBBDataset(Dataset):
             debug=295
         sz = len(gemm_edges)
         edge_indices = np.arange(sz)
-        edge_connection = np.zeros((2, 5*sz))
+        edge_connection = np.zeros((2, 4*sz))
         for i in range(gemm_edges.shape[1]):
             edge_connection[0, i*sz:(i+1)*sz] = edge_indices
             edge_connection[1, i*sz:(i+1)*sz] = gemm_edges[:, i]
-        edge_connection[0, 4*sz:(4+1)*sz] = edge_indices
-        edge_connection[1, 4*sz:(4+1)*sz] = edge_indices
+        #edge_connection[0, 4*sz:(4+1)*sz] = edge_indices
+        #edge_connection[1, 4*sz:(4+1)*sz] = edge_indices
         valid = np.min(edge_connection, axis=0)
         valid = np.tile([valid>-1], (2,1))
         edge_connection = edge_connection[valid].reshape(2,-1)

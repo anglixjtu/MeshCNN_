@@ -30,7 +30,7 @@ class CreateModel:
 
         # load/define networks
         self.net = networks.define_net(opt.input_nc, opt.ncf, opt.ninput_edges, opt.nclasses, opt,
-                                              self.gpu_ids, opt.arch, opt.init_type, opt.init_gain)
+                                              self.gpu_ids, opt.arch, opt.init_type, opt.init_gain, opt.batch_size)
         self.net.train(self.is_train)
         self.criterion = networks.define_loss(opt).to(self.device)
 
@@ -39,7 +39,13 @@ class CreateModel:
             self.scheduler = networks.get_scheduler(self.optimizer, opt)
             print_network(self.net)
 
-        if not self.is_train or opt.continue_train:
+        if not self.is_train and opt.continue_train:
+            self.load_network("latest")
+
+        if self.is_train and opt.continue_train:
+            self.load_network(opt.which_epoch)
+
+        if not self.is_train and not opt.continue_train:
             self.load_network(opt.which_epoch)
 
     def set_input(self, data):

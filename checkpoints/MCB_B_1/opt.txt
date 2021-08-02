@@ -29,7 +29,7 @@ num_aug: 20
 num_groups: 16
 num_threads: 4
 phase: train
-pool_res: []
+pool_res: [600, 450, 300, 180]
 print_freq: 10
 resblocks: 1
 run_test_freq: 1

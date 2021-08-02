@@ -3,10 +3,10 @@ arch: mconvnet
 batch_size: 16
 beta1: 0.9
 checkpoints_dir: ./checkpoints
-continue_train: False
+continue_train: True
 dataroot: G:/dataset/MCB_B/MCB_B/
 dataset_mode: mcb_b
-epoch_count: 1
+epoch_count: 20
 export_folder: 
 fc_n: 100
 flip_edges: 0.2
@@ -18,11 +18,11 @@ lr: 0.0002
 lr_decay_iters: 50
 lr_policy: lambda
 max_dataset_size: inf
-name: MCB_B_950_SP
+name: MCB_B_2
 ncf: [64, 128, 256, 256]
 ninput_edges: 750
 niter: 100
-niter_decay: 100
+niter_decay: 50
 no_vis: False
 norm: batch
 num_aug: 20
@@ -43,5 +43,5 @@ slide_verts: 0.2
 test_namelist: E:/ARIH/3D_modeling/tools/test_10c1000s.txt
 train_namelist: E:/ARIH/3D_modeling/tools/train_10c1000s.txt
 verbose_plot: False
-which_epoch: latest
+which_epoch: 20
 -------------- End ----------------
