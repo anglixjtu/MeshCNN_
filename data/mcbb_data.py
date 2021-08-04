@@ -17,13 +17,13 @@ class MCBBDataset(Dataset):
         
         self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) if opt.gpu_ids else torch.device('cpu')
         self.root = opt.dataroot
-        if opt.phase == "train":
+        if opt.phase == "train" or opt.phase == "retrieval":
             self.namelist_file = opt.train_namelist
         elif opt.phase == "test":
             self.namelist_file = opt.test_namelist
         self.dir = os.path.join(opt.dataroot)
-        self.classes, self.class_to_idx = self.find_classes(os.path.join(self.dir, opt.phase))
-        self.paths = self.make_dataset_by_class_from_namelist(self.root, self.namelist_file, self.class_to_idx)
+        # self.classes, self.class_to_idx = self.find_classes(os.path.join(self.dir, opt.phase))
+        self.paths, self.classes, self.class_to_idx = self.make_dataset_by_class_from_namelist(self.root, self.namelist_file)# added by ang li
         self.nclasses = len(self.classes)
         self.size = len(self.paths)
         self.mean = 0
@@ -77,6 +77,8 @@ class MCBBDataset(Dataset):
         class_to_idx = {classes[i]: i for i in range(len(classes))}
         return classes, class_to_idx
 
+
+
     @staticmethod
     def make_dataset_by_class(dir, class_to_idx, phase):
         meshes = []
@@ -94,15 +96,22 @@ class MCBBDataset(Dataset):
         return meshes
 
     @staticmethod
-    def make_dataset_by_class_from_namelist(dataroot, namelist_file, class_to_idx):
+    def make_dataset_by_class_from_namelist(dataroot, namelist_file):
         meshes = []
+        classes = []
+        class_to_idx = {}
+        class_count = 0
         for model_name in open(namelist_file, "r"):
             model_name = model_name.strip('\n')
             name_parts = model_name.split("/")
             target = name_parts[1]
+            if  target not in classes:
+                classes += [target]
+                class_to_idx[target] = class_count
+                class_count += 1
             item = (os.path.join(dataroot, model_name), class_to_idx[target])
             meshes.append(item)
-        return meshes
+        return meshes, classes, class_to_idx
 
     @staticmethod
     def get_edge_connection(gemm_edges):

@@ -1,7 +1,10 @@
+from torch.functional import Tensor
+from torch.nn.functional import embedding
 from . import networks
 import torch
 from os.path import join
 from util.util import print_network
+import numpy as np
 
 class CreateModel:
     """ Class for training Model weights
@@ -15,6 +18,7 @@ class CreateModel:
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
         self.is_train = opt.is_train
+        self.phase = opt.phase
         self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
         self.save_dir = join(opt.checkpoints_dir, opt.name)
         self.optimizer = None
@@ -39,26 +43,32 @@ class CreateModel:
             self.scheduler = networks.get_scheduler(self.optimizer, opt)
             print_network(self.net)
 
-        if not self.is_train and opt.continue_train:
-            self.load_network("latest")
+        if self.phase=='test':
+            if opt.continue_train:
+                self.load_network("latest")
+            else:
+                self.load_network(opt.which_epoch) 
 
-        if self.is_train and opt.continue_train:
+        if self.phase=='train' and opt.continue_train:
             self.load_network(opt.which_epoch)
 
-        if not self.is_train and not opt.continue_train:
-            self.load_network(opt.which_epoch)
+        if self.phase=='retrieval':
+            self.load_network(opt.which_epoch) 
 
     def set_input(self, data):
-        labels = data[1]
+        labels = torch.Tensor(np.array([data[1]]))
         data = data[0]
         # set inputs
-        self.data = data.to(self.device)
-        self.labels = labels.to(self.device)
 
+        if not hasattr(data, 'batch'):
+            data.batch = torch.zeros(len(data.x), 1)
+            data.batch = data.batch.long()
+        self.data = data.to(self.device)
+        self.labels = labels.long().to(self.device)
 
     def forward(self):
-        out = self.net(self.data)
-        return out
+        out, embeddings = self.net(self.data)
+        return out, embeddings
 
     def backward(self, out):
         self.loss = self.criterion(out, self.labels)
@@ -66,7 +76,7 @@ class CreateModel:
 
     def optimize_parameters(self):
         self.optimizer.zero_grad()
-        out = self.forward()
+        out, _ = self.forward()
         self.backward(out)
         self.optimizer.step()
 

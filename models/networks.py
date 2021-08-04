@@ -132,10 +132,11 @@ class MeshConvNet(nn.Module):
 
         x = global_mean_pool(x, batch)
         #x = x.view(-1, self.k[-1])
-
+        embeddings = x
         x = F.relu(self.fc1(x))
         x = self.fc2(x)
-        return x
+        
+        return x, embeddings
 
 class MeshMLPNet(nn.Module):
     """Network for learning a global shape descriptor (classification)
@@ -172,23 +173,30 @@ class MeshMLPNet(nn.Module):
 
         x0, edge_index, batch = data.x, data.edge_index, data.batch
 
-
+        embeddings = {}
         x = x0
         for i in range(len(self.k) - 1):
             x = getattr(self, 'mlp{}'.format(i))(x)
+            embeddings['mlp{}'.format(i)] = x
             x = getattr(self, 'conv{}'.format(i))(x, edge_index)
+            embeddings['conv{}'.format(i)] = x
             x = F.relu(x)
             x = getattr(self, 'norm{}'.format(i))(x)
+            embeddings['norm{}'.format(i)] = x
             #x = F.relu(getattr(self, 'norm{}'.format(i))(x))
             if hasattr(self, 'pool{}'.format(i)):
                 x, edge_index, _, batch, perm, score = getattr(self, 'pool{}'.format(i))(x, edge_index, None, batch)
+                embeddings['pool{}'.format(i)] = x
 
         x = global_mean_pool(x, batch)
         #x = x.view(-1, self.k[-1])
-
-        x = F.relu(self.fc1(x))
+        embeddings['gb_pool'] = x
+        x = self.fc1(x)
+        embeddings['fc1'] = x
+        x = F.relu(x)
         x = self.fc2(x)
-        return x
+        embeddings['fc2'] = x
+        return x, embeddings
 
 
 class MeshMLPL2Net(nn.Module):
@@ -239,7 +247,7 @@ class MeshMLPL2Net(nn.Module):
 
         x = global_mean_pool(x, batch)
         #x = x.view(-1, self.k[-1])
-
+        embeddings = x
         x = self.fc1(x)
         x = self.fc2(x)
-        return x
+        return x, embeddings
