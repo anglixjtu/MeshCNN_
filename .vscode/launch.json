@@ -21,7 +21,7 @@
                 "--which_layer",
                 "gb_pool",
                 "--num_neigb",
-                "4",
+                "5",
                 "--train_namelist",
                 "E:/ARIH/3D_modeling/tools/test_r.txt",
                 "--arch",

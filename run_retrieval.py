@@ -10,18 +10,23 @@ def run_retrieve():
     opt = RetrievalOptions().parse() 
     retriever = Retriever(opt)
     dataset = CreateDataset(opt)
-    dataloader = DataLoader( dataset, batch_size=1,#opt.batch_size
-            shuffle=False,
-            num_workers=1)
     model = CreateModel(opt)
 
     fea_db = retriever.extract_database_features(model, dataset)
 
-    i=0
-    query = dataset[i]
-    dist, ranked_list = retriever.retrive_one_example(model, query, dataloader, fea_db)
+    query_set = dataset
+    fea_q = fea_db
 
-    retriever.show_results(i, ranked_list)
+    dist, ranked_list = retriever.retrieve(model, query_set, dataset, fea_db, fea_q)
+    idx_query = list(range(len(dataset)))
+
+    retriever.evaluate_results(idx_query, ranked_list)
+
+    i=0
+    #query = dataset[i]
+    #dist, ranked_list = retriever.retrive_one_example(model, query, dataloader, fea_db)
+
+    #retriever.show_results(i, ranked_list)
 
     debug = 295
 
