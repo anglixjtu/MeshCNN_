@@ -17,12 +17,13 @@ def run_retrieve():
 
     fea_db = retriever.extract_database_features(model, dataset)
 
-    for i, query in enumerate(dataset):
-        dist, ranked_list = retriever.retrive_one_example(model, query, dataloader, fea_db)
+    i=0
+    query = dataset[i]
+    dist, ranked_list = retriever.retrive_one_example(model, query, dataloader, fea_db)
 
-        retriever.show_results(i, ranked_list)
+    retriever.show_results(i, ranked_list)
 
-        debug = 295
+    debug = 295
 
 
 if __name__ == '__main__':

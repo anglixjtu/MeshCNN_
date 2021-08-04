@@ -56,7 +56,7 @@ class CreateModel:
             self.load_network(opt.which_epoch) 
 
     def set_input(self, data):
-        labels = torch.Tensor(np.array([data[1]]))
+        labels = data[1]
         data = data[0]
         # set inputs
 
@@ -71,7 +71,7 @@ class CreateModel:
         return out, embeddings
 
     def backward(self, out):
-        self.loss = self.criterion(out, self.labels)
+        self.loss = self.criterion(out, self.labels.squeeze())
         self.loss.backward()
 
     def optimize_parameters(self):
@@ -119,7 +119,7 @@ class CreateModel:
         returns: number correct and total number
         """
         with torch.no_grad():
-            out = self.forward()
+            out, _ = self.forward()
             # compute number of correct
             pred_class = out.data.max(1)[1]
             label_class = self.labels

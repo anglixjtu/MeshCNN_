@@ -27,6 +27,8 @@ if __name__ == '__main__':
         iter_data_time = time.time()
         epoch_iter = 0
 
+        acc = run_test(epoch)
+
         for i, data in enumerate(dataloader):
             iter_start_time = time.time()
             if total_steps % opt.print_freq == 0:

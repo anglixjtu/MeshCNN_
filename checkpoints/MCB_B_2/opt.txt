@@ -3,10 +3,10 @@ arch: mconvnet
 batch_size: 16
 beta1: 0.9
 checkpoints_dir: ./checkpoints
-continue_train: True
+continue_train: False
 dataroot: G:/dataset/MCB_B/MCB_B/
 dataset_mode: mcb_b
-epoch_count: 20
+epoch_count: 1
 export_folder: 
 fc_n: 100
 flip_edges: 0.2
@@ -43,5 +43,5 @@ slide_verts: 0.2
 test_namelist: E:/ARIH/3D_modeling/tools/test_10c1000s.txt
 train_namelist: E:/ARIH/3D_modeling/tools/train_10c1000s.txt
 verbose_plot: False
-which_epoch: 20
+which_epoch: latest
 -------------- End ----------------

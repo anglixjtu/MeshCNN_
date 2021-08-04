@@ -87,12 +87,12 @@
                 "16",
                 "--sample_mesh",
                 "1",
-                "--which_epoch",
-                "20",
-                "--epoch_count",
-                "20",
-                "--continue_train",
-                "true",
+                //"--which_epoch",
+                //"20",
+                //"--epoch_count",
+                //"20",
+                //"--continue_train",
+                //"true",
             ]
         },
         {

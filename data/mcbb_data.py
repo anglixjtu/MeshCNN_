@@ -41,7 +41,7 @@ class MCBBDataset(Dataset):
     def get(self, idx):
         path = self.paths[idx][0]
         label = self.paths[idx][1]
-
+        
         mesh_in = tm.load(path)
         #print("Number of faces before process is %d"%(len(mesh_in.faces)))
 
@@ -55,6 +55,7 @@ class MCBBDataset(Dataset):
         edge_connections = torch.tensor(edge_connections, dtype=torch.long)
 
         graph_data = Data(x=edge_features, edge_index=edge_connections)
+        label = torch.Tensor(np.array([label]))
 
         
         '''print("Number of faces after process is %d"%(len(mesh_pv.faces)//4))
