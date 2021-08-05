@@ -118,6 +118,14 @@ class Retriever:
     def get_patk(self, gt_label, label_list, K):
         """
         Calculate Precision@K
+
+        Args:
+            gt_label: the ground truth label for query
+            label_list: labels for the retrieved ranked-list
+            K: top K in the ranked-list for computing precision. Set to len(label_list) if compute P@N
+
+        Returns:
+            P@K score
         """
         patk = 0
         for i, pred_label in enumerate(label_list[:K]):
@@ -131,6 +139,12 @@ class Retriever:
     def get_map(self, gt_label, label_list):
         """
         Calculate mean average precision
+            Args:
+            gt_label: the ground truth label for query
+            label_list: labels for the retrieved ranked-list
+
+        Returns:
+            AP score
         """
         #TODO: mAP and NDCG need to be divided by total number of relevant models in ground truth set, not in the retrieval list itself
         map = 0
@@ -151,6 +165,15 @@ class Retriever:
     def get_ndcg(self, gt_label, label_list, K):
         """
         Calculate Normalized Cumulative Gain (NDCG) at rank K
+
+        Args:
+            gt_label: the ground truth label for query
+            label_list: labels for the retrieved ranked-list
+            K: top K in the ranked-list for computing precision. Set to len(label_list) if compute NDCG@N
+
+        Returns:
+            NDCG@K
+        
         """
         dcg = 0
         dcg_gt = 0
