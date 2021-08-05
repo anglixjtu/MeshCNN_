@@ -8,7 +8,7 @@ except ImportError as error:
     SummaryWriter = None
 
 class Writer:
-    def __init__(self, opt):
+    def __init__(self, opt, use_tensorboard=True):
         self.name = opt.name
         self.opt = opt
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
@@ -18,7 +18,7 @@ class Writer:
         self.nexamples = 0
         self.ncorrect = 0
         #
-        if opt.is_train and not opt.no_vis and SummaryWriter is not None:
+        if use_tensorboard and SummaryWriter is not None: # opt.is_train and not opt.no_vis and 
             self.display = SummaryWriter(comment=opt.name)
         else:
             self.display = None
@@ -63,6 +63,10 @@ class Writer:
     def plot_acc(self, acc, epoch):
         if self.display:
             self.display.add_scalar('data/test_acc', acc, epoch)
+
+    def plot_arch(self, model, x, edge_index, batch):
+        if self.display:
+            self.display.add_graph(model, (x, edge_index, batch))
 
     def reset_counter(self):
         """

@@ -1,0 +1,47 @@
+------------ Options -------------
+arch: vnet
+batch_size: 1
+beta1: 0.9
+checkpoints_dir: ./checkpoints
+continue_train: False
+dataroot: G:/dataset/MCB_B/MCB_B/
+dataset_mode: mcb_b
+epoch_count: 1
+export_folder: 
+fc_n: 100
+flip_edges: 0.2
+gpu_ids: []
+init_gain: 0.02
+init_type: normal
+is_train: True
+lr: 0.0002
+lr_decay_iters: 50
+lr_policy: lambda
+max_dataset_size: inf
+name: MCB_B_NR_1000
+ncf: [64, 64, 128, 256, 512]
+ninput_edges: 750
+niter: 100
+niter_decay: 100
+no_vis: False
+norm: batch
+num_aug: 1
+num_groups: 16
+num_threads: 4
+phase: train
+pool_res: []
+print_freq: 10
+resblocks: 1
+run_test_freq: 1
+sample_mesh: 1
+save_epoch_freq: 1
+save_latest_freq: 250
+scale_verts: False
+seed: None
+serial_batches: False
+slide_verts: 0.2
+test_namelist: E:/ARIH/3D_modeling/tools/test_10c1000s.txt
+train_namelist: E:/ARIH/3D_modeling/tools/train_10c1000s.txt
+verbose_plot: False
+which_epoch: latest
+-------------- End ----------------

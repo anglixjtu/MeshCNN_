@@ -61,17 +61,17 @@ class CreateModel:
         # set inputs
 
         if not hasattr(data, 'batch'):
-            data.batch = torch.zeros(len(data.x), 1)
+            data.batch = torch.ones(len(data.x), 1)
             data.batch = data.batch.long()
         self.data = data.to(self.device)
         self.labels = labels.long().to(self.device)
 
     def forward(self):
-        out, embeddings = self.net(self.data)
+        out, embeddings = self.net(self.data.x, self.data.edge_index, self.data.batch)
         return out, embeddings
 
     def backward(self, out):
-        self.loss = self.criterion(out, self.labels.squeeze())
+        self.loss = self.criterion(out, self.labels.reshape(-1,))
         self.loss.backward()
 
     def optimize_parameters(self):

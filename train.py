@@ -36,6 +36,9 @@ if __name__ == '__main__':
             model.set_input(data)
             model.optimize_parameters()
 
+            if i == 0 and epoch == 1:
+                writer.plot_arch(model.net, model.data.x, model.data.edge_index, model.data.batch)
+
             if total_steps % opt.print_freq == 0:
                 loss = model.loss
                 t = (time.time() - iter_start_time) / opt.batch_size
