@@ -2,7 +2,7 @@ import numpy as np
 
 class Opt:
     def __init__(self):
-        self.arch='mmlpnet'
+        self.arch='mmlpnrnet'
         self.batch_size=16
         self.checkpoints_dir='./checkpoints'
         self.dataroot='G:/dataset/MCB_B/MCB_B/'
@@ -15,7 +15,7 @@ class Opt:
         self.init_type='normal'
         self.is_train=False
         self.max_dataset_size=np.inf
-        self.name='MCB_B_MLP_noaug'
+        self.name='MCB_B_NR_1000'
         self.ncf=[64, 64, 128, 256, 512]
         self.ninput_edges=750
         self.norm='batch'
@@ -34,7 +34,7 @@ class Opt:
         self.serial_batches=False
         self.test_namelist='E:/ARIH/3D_modeling/tools/test_10c1000s.txt'
         self.train_namelist='E:/ARIH/3D_modeling/tools/test_10c1000s.txt'
-        self.which_epoch='26'
+        self.which_epoch='196'
         self.which_layer='gb_pool'
 
 

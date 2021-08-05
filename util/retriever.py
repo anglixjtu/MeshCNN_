@@ -41,9 +41,9 @@ class Retriever:
             fea_db = self.extract_database_features(model, dataset)
         data_len, fea_len = fea_db.shape
 
-        dist, ranked_list = self.search_indexflat(fea_q, fea_db, fea_len, self.num_neigb)
+        dist, ranked_list, dissm = self.search_indexflat(fea_q, fea_db, fea_len, self.num_neigb)
 
-        return dist, ranked_list
+        return dist, ranked_list, dissm
 
 
     def retrieve(self, model, queryset, dataset, fea_db=None, fea_q=None):
@@ -59,19 +59,22 @@ class Retriever:
 
         data_len, fea_len = fea_db.shape
 
-        dist, ranked_list = self.search_indexflat(fea_q, fea_db, fea_len, self.num_neigb)
+        dist, ranked_list, dissm = self.search_indexflat(fea_q, fea_db, fea_len, self.num_neigb)
 
-        return dist, ranked_list
+        return dist, ranked_list, dissm
 
 
     def search_indexflat(self, fea_q, fea_db, dim, k):
-        D, I = {}, {}
+        D, I, dissm = {}, {}, {}
         for method in self.methods:
             index = eval(method)(dim)
             index.add(fea_db) 
             D[method], I[method] = index.search(fea_q, k)
+            # compute dis-similarity score
+            max_dist = D[method].max()
+            dissm[method] = D[method] / max_dist
         #TODO: add threshold for the retrieval results
-        return D, I
+        return D, I, dissm
       
 
     def extract_feature(self, model, data):
@@ -80,7 +83,7 @@ class Retriever:
         return out_label.cpu().detach().numpy(),\
                features[self.which_layer].cpu().detach().numpy()
 
-    def show_results(self, idx_query, idx_list):
+    def show_results(self, idx_query, idx_list, dissm=None):
 
         font_size = 10
         num_methods = len(self.methods)
@@ -92,12 +95,22 @@ class Retriever:
             p.subplot(m, 0)
             p.add_text("{}-query".format(method), font_size=font_size)
             p.add_mesh(mesh_q, color="tan", show_edges=True)
-            for i, index in enumerate(idx_list[method][0]):
+            
+            if len(idx_list[method]) == 1:
+                indices = idx_list[method][0]
+                if dissm is not None: ds = dissm[method][0]
+            else:
+                indices = idx_list[method][idx_query]
+                if dissm is not None: ds = dissm[method][idx_query]
+
+            for i, index in enumerate(indices):
                 filename = self.dataroot + self.database_namelist[index].strip('\n')
                 label = filename.split('/')[-2]
                 mesh = pv.read(filename)
                 p.subplot(m, i+1)
                 p.add_text("{}-{}".format(method, label), font_size=font_size)
+                if dissm is not None:
+                    p.add_text("\n\ndissimilarity: %.3f"%(ds[i]), font_size=font_size)
                 p.add_mesh(mesh, color="tan", show_edges=True)
 
         p.show()
@@ -119,9 +132,18 @@ class Retriever:
         """
         Calculate mean average precision
         """
+        #TODO: mAP and NDCG need to be divided by total number of relevant models in ground truth set, not in the retrieval list itself
         map = 0
-        for k in range(1, len(label_list)):
-            map += self.get_patk(gt_label, label_list, k)
+        counter = 0
+        for k in range(len(label_list)):
+            if gt_label == label_list[k]: # at each relevant positions
+                map += self.get_patk(gt_label, label_list, k+1)
+                counter += 1
+        '''if counter == 0:
+            map = 0
+        else:
+            map /= counter'''
+
         map /= len(label_list)
 
         return map
