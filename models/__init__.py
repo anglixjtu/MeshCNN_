@@ -61,7 +61,7 @@ class CreateModel:
         # set inputs
 
         if not hasattr(data, 'batch'):
-            data.batch = torch.ones(len(data.x), 1)
+            data.batch = torch.zeros(len(data.x), 1)
             data.batch = data.batch.long()
         self.data = data.to(self.device)
         self.labels = labels.long().to(self.device)

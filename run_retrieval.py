@@ -20,6 +20,8 @@ def run_retrieve():
     dist, ranked_list, dissm = retriever.retrieve(model, query_set, dataset, fea_db, fea_q)
     idx_query = list(range(len(dataset)))
 
+    retriever.show_embedding(fea_db, idx_query)
+
     retriever.evaluate_results(idx_query, ranked_list)
 
     i=0

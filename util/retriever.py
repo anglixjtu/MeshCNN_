@@ -3,6 +3,9 @@ from faiss import IndexFlatIP, IndexFlatL2
 import pyvista as pv  
 import os
 import time
+from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool, global_sort_pool
+import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 class Retriever:
     def __init__(self, opt):
@@ -19,6 +22,10 @@ class Retriever:
         self.threshold = 1 #TODO: get the threshold from args
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
         self.log_name = os.path.join(self.save_dir, 'retrieval_acc.txt')
+        self.pooling = opt.pooling
+        self.feature_size = 512
+        self.pooling_set = ['global_mean_pool', 'global_add_pool', 'global_max_pool']
+        self.normalize = opt.normalize
 
 
 
@@ -28,6 +35,7 @@ class Retriever:
 
         for i, data in enumerate(dataset):
             out_label, features = self.extract_feature(model, data)
+              
             if i == 0:
                 x = features
             else:
@@ -80,8 +88,14 @@ class Retriever:
     def extract_feature(self, model, data):
         model.set_input(data)
         out_label, features = model.forward()
+        features = features[self.which_layer]
+        if self.pooling in self.pooling_set:
+            features = eval(self.pooling)(features, model.data.batch)
+        if self.normalize:
+            features = F.normalize(features, p=self.normalize, dim=1)
+        self.feature_size = features.shape[1]
         return out_label.cpu().detach().numpy(),\
-               features[self.which_layer].cpu().detach().numpy()
+               features.cpu().detach().numpy()
 
     def show_results(self, idx_query, idx_list, dissm=None):
 
@@ -223,7 +237,10 @@ class Retriever:
         message = '================ Retrieval Acc (%s) ================\n'\
                   'Maximum retrieve %d nearest samples with threshold %.2f. \n'\
                   'Using the embeddings from layer [%s]. \n'\
-                  %(now, self.num_neigb, self.threshold, self.which_layer)
+                  'Using pooling                   [%s]. \n'\
+                  'Feature length                  [%d]. \n'\
+                  'Normalize                       [%d]. \n'\
+                  %(now, self.num_neigb, self.threshold, self.which_layer, self.pooling, self.feature_size, self.normalize)
         print(message)
         with open(self.log_name, "a") as log_file:
             log_file.write('%s\n' % message)
@@ -235,6 +252,16 @@ class Retriever:
             print(message)
             with open(self.log_name, "a") as log_file:
                 log_file.write('%s\n' % message)
+
+
+    def show_embedding(self, features, idx_list):
+        label_list = self.get_labels_from_index(idx_list)
+        writer = SummaryWriter('runs/embedding')
+        writer.add_embedding(features,
+                    metadata=label_list)
+        writer.close()
+
+
 
         
 

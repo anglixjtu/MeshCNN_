@@ -21,7 +21,7 @@ class Opt:
         self.norm='batch'
         self.num_aug=1
         self.num_groups=16
-        self.num_neigb=4
+        self.num_neigb=5
         self.num_threads=3
         self.phase='retrieval'
         self.pool_res=[]
@@ -36,5 +36,9 @@ class Opt:
         self.train_namelist='E:/ARIH/3D_modeling/tools/test_10c1000s.txt'
         self.which_epoch='196'
         self.which_layer='gb_pool'
+        self.pooling='None'
+        self.normalize=2
+        
+
 
 
