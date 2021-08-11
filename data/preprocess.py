@@ -3,6 +3,7 @@ import os
 import ntpath
 import pyvista as pv
 import trimesh as tm
+import time
 
 
 def sample_and_compute_features(mesh_tm, file, opt):
@@ -23,7 +24,8 @@ def sample_and_compute_features(mesh_tm, file, opt):
     mesh_data.edge_areas = []
 
     mesh_tm = tm.load(file)
-
+    
+    start_t = time.time()
     mesh_pv, faces, face_areas = sample_mesh(mesh_tm, mesh_data, opt.ninput_edges, opt.sample_mesh)
     
     if opt.num_aug > 1: #TODO: check the right augmentations for mechanical data
@@ -46,12 +48,19 @@ def sample_and_compute_features(mesh_tm, file, opt):
         if opt.num_aug > 1:
             faces = augmentation(mesh_data, opt, faces)
         build_gemm(mesh_data, faces, face_areas)
+    end_t = time.time()
+    opt.t_pp += end_t - start_t
 
 
 
     if opt.num_aug > 1:
         post_augmentation(mesh_data, opt)
+
+    start_t = time.time()
     mesh_data.features = extract_features(mesh_data)
+    end_t = time.time()
+    opt.t_ef += end_t - start_t
+
     return mesh_pv, mesh_data
 
 # Preprocess methods by Ang Li

@@ -15,7 +15,7 @@ def run_test(epoch=-1):
             shuffle=False,
             num_workers=1)
     model = CreateModel(opt)
-    #summary(model.net, input_size=[(750, 5), (2, 3000), (750,1) ])
+    summary(model.net, input_size=[(750, 5), (2, 3000), (750,1) ])
 
     writer = Writer(opt, False)
     # test

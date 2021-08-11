@@ -26,6 +26,7 @@ class Retriever:
         self.feature_size = 512
         self.pooling_set = ['global_mean_pool', 'global_add_pool', 'global_max_pool']
         self.normalize = opt.normalize
+        self.opt.t_infr = 0 # store inference time
 
 
 
@@ -34,7 +35,10 @@ class Retriever:
         data_length = len(dataset)
 
         for i, data in enumerate(dataset):
+            start_t = time.time()
             out_label, features = self.extract_feature(model, data)
+            end_t = time.time()
+            self.opt.t_infr += end_t - start_t
               
             if i == 0:
                 x = features
@@ -79,8 +83,8 @@ class Retriever:
             index.add(fea_db) 
             D[method], I[method] = index.search(fea_q, k)
             # compute dis-similarity score
-            max_dist = D[method].max()
-            dissm[method] = D[method] / max_dist
+            #max_dist = D[method].max() + 1e-10 # TODO: modify this
+            dissm[method] = D[method] #/ max_dist
         #TODO: add threshold for the retrieval results
         return D, I, dissm
       
@@ -99,15 +103,19 @@ class Retriever:
 
     def show_results(self, idx_query, idx_list, dissm=None):
 
-        font_size = 10
+        font_size = 15
         num_methods = len(self.methods)
-        p = pv.Plotter(shape=(num_methods, self.num_neigb+1))
+        p = pv.Plotter(shape=(num_methods, self.num_neigb+1), window_size=(1024, 300), border_color='gray')
         query_file = self.dataroot + self.query_namelist[idx_query].strip('\n')
         mesh_q = pv.read(query_file)
 
         for m, method in enumerate(self.methods):      
             p.subplot(m, 0)
-            p.add_text("{}-query".format(method), font_size=font_size)
+            # p.add_text("{}-query".format(method), font_size=font_size, color='black')
+            filename = self.dataroot + self.database_namelist[idx_query].strip('\n')
+            label = filename.split('/')[-2]
+            p.add_text("Query-{}".format(label), font_size=font_size, color='black')
+            p.set_background('white')
             p.add_mesh(mesh_q, color="tan", show_edges=True)
             
             if len(idx_list[method]) == 1:
@@ -122,9 +130,11 @@ class Retriever:
                 label = filename.split('/')[-2]
                 mesh = pv.read(filename)
                 p.subplot(m, i+1)
-                p.add_text("{}-{}".format(method, label), font_size=font_size)
+                #p.add_text("{}-{}".format(method, label), font_size=font_size, color='black')
+                p.add_text("{}".format(label), font_size=font_size, color='black')
+                p.set_background('white')
                 if dissm is not None:
-                    p.add_text("\n\ndissimilarity: %.3f"%(ds[i]), font_size=font_size)
+                    p.add_text("\n\ndistance: %.3f"%(ds[i]), font_size=font_size, color='black')
                 p.add_mesh(mesh, color="tan", show_edges=True)
 
         p.show()

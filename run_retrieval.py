@@ -3,6 +3,7 @@ from data import CreateDataset
 from torch_geometric.data import DataLoader
 from models import CreateModel
 from util.retriever import Retriever
+import numpy as np
 
 
 def run_retrieve():
@@ -16,6 +17,8 @@ def run_retrieve():
 
     query_set = dataset
     fea_q = fea_db
+
+    #np.random.shuffle(fea_db) 
 
     dist, ranked_list, dissm = retriever.retrieve(model, query_set, dataset, fea_db, fea_q)
     idx_query = list(range(len(dataset)))

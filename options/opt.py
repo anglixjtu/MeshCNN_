@@ -29,7 +29,7 @@ class Opt:
         self.resblocks=0
         self.results_dir='./results/'
         self.sample_mesh=1
-        self.search_methods=['IndexFlatL2', 'IndexFlatIP']
+        self.search_methods=['IndexFlatL2']
         self.seed=None
         self.serial_batches=False
         self.test_namelist='E:/ARIH/3D_modeling/tools/test_10c1000s.txt'
@@ -37,7 +37,7 @@ class Opt:
         self.which_epoch='196'
         self.which_layer='gb_pool'
         self.pooling='None'
-        self.normalize=2
+        self.normalize=0
         
 
 

@@ -377,3 +377,81 @@ P@N: 0.750, mAP: 0.724, NDCG@N: 0.787
 Distance metric: IndexFlatIP 
 P@N: 0.658, mAP: 0.585, NDCG@N: 0.676 
 
+================ Retrieval Acc (Sat Aug  7 20:29:35 2021) ================
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [gb_pool]. 
+Using pooling                   [None]. 
+Feature length                  [512]. 
+Normalize                       [2]. 
+
+Distance metric: IndexFlatL2 
+P@N: 0.984, mAP: 0.981, NDCG@N: 0.987 
+
+Distance metric: IndexFlatIP 
+P@N: 0.984, mAP: 0.981, NDCG@N: 0.987 
+
+================ Retrieval Acc (Tue Aug 10 11:14:02 2021) ================
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [gb_pool]. 
+Using pooling                   [None]. 
+Feature length                  [512]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+P@N: 0.738, mAP: 0.714, NDCG@N: 0.777 
+
+Distance metric: IndexFlatIP 
+P@N: 0.339, mAP: 0.248, NDCG@N: 0.350 
+
+================ Retrieval Acc (Tue Aug 10 11:17:15 2021) ================
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [gb_pool]. 
+Using pooling                   [None]. 
+Feature length                  [512]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+P@N: 0.285, mAP: 0.245, NDCG@N: 0.371 
+
+Distance metric: IndexFlatIP 
+P@N: 0.147, mAP: 0.085, NDCG@N: 0.152 
+
+================ Retrieval Acc (Tue Aug 10 11:20:07 2021) ================
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [fc1]. 
+Using pooling                   [None]. 
+Feature length                  [100]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+P@N: 0.733, mAP: 0.710, NDCG@N: 0.774 
+
+Distance metric: IndexFlatIP 
+P@N: 0.404, mAP: 0.315, NDCG@N: 0.416 
+
+================ Retrieval Acc (Tue Aug 10 11:22:40 2021) ================
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [fc2]. 
+Using pooling                   [None]. 
+Feature length                  [10]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+P@N: 0.737, mAP: 0.714, NDCG@N: 0.777 
+
+Distance metric: IndexFlatIP 
+P@N: 0.493, mAP: 0.414, NDCG@N: 0.508 
+
+================ Retrieval Acc (Tue Aug 10 13:16:13 2021) ================
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [norm4]. 
+Using pooling                   [global_mean_pool]. 
+Feature length                  [512]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+P@N: 0.725, mAP: 0.704, NDCG@N: 0.768 
+
+Distance metric: IndexFlatIP 
+P@N: 0.670, mAP: 0.597, NDCG@N: 0.681 
+

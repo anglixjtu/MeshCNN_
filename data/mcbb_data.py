@@ -8,6 +8,7 @@ from data.preprocess import sample_and_compute_features
 from util.util import pad, is_mesh_file
 import numpy as np
 import pickle
+import time
 
 
 class MCBBDataset(Dataset):
@@ -17,7 +18,7 @@ class MCBBDataset(Dataset):
         
         self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) if opt.gpu_ids else torch.device('cpu')
         self.root = opt.dataroot
-        if opt.phase == "train" or opt.phase == "retrieval":
+        if opt.phase in ["train", "retrieval", "timer"]:
             self.namelist_file = opt.train_namelist
         elif opt.phase == "test":
             self.namelist_file = opt.test_namelist
@@ -30,10 +31,15 @@ class MCBBDataset(Dataset):
         self.std = 1
         self.ninput_channels = None
         opt.nclasses = self.nclasses
+        # for timer
+        opt.t_load = 0
+        opt.t_pp = 0 # time for preprocess
+        opt.t_ef = 0 # time for extract edge features
+
         self.opt = opt
         self.get_mean_std(opt) #modified by Ang Li
 
-        # modify for network later.
+        
 
     def len(self):
         return self.size
@@ -43,10 +49,12 @@ class MCBBDataset(Dataset):
         label = self.paths[idx][1]
         
         mesh_in = tm.load(path)
+
         #print("Number of faces before process is %d"%(len(mesh_in.faces)))
 
         mesh_pv, meshcnn_data = sample_and_compute_features(mesh_in, path, self.opt)
-
+       
+        start_t = time.time()
         edge_features = pad(meshcnn_data.features, self.opt.ninput_edges)
         edge_features  = (edge_features - self.mean) / self.std
         edge_connections = self.get_edge_connection(meshcnn_data.gemm_edges)
@@ -56,6 +64,9 @@ class MCBBDataset(Dataset):
 
         graph_data = Data(x=edge_features, edge_index=edge_connections)
         label = torch.Tensor(np.array([label]))
+
+        end_t = time.time()
+        self.opt.t_ef += end_t - start_t
 
         
         '''print("Number of faces after process is %d"%(len(mesh_pv.faces)//4))
