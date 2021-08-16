@@ -6,6 +6,7 @@ import time
 from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_pool, global_sort_pool
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
+import json
 
 class Retriever:
     def __init__(self, opt):
@@ -14,8 +15,8 @@ class Retriever:
         self.num_neigb = opt.num_neigb
         self.database_namefile = opt.train_namelist
         self.query_namefile = opt.test_namelist
-        self.database_namelist = open(self.database_namefile).readlines()
-        self.query_namelist = open(self.query_namefile ).readlines()
+        self.database_namelist = self.make_dataset(opt.dataroot, opt.train_namelist, 'test')
+        self.query_namelist = self.make_dataset(opt.dataroot, opt.train_namelist, 'test')
         self.dataroot = opt.dataroot
         self.methods = opt.search_methods
         self.which_layer = opt.which_layer
@@ -213,7 +214,7 @@ class Retriever:
     def get_labels_from_index(self, indices):
         labels = []
         for index in indices:
-            label = self.database_namelist[index].strip('\n').split('/')[-2]
+            label = self.database_namelist[index].split('/')[-2]
             labels += [label]
         return labels
     
@@ -271,9 +272,19 @@ class Retriever:
                     metadata=label_list)
         writer.close()
 
-
-
-        
+    def make_dataset(self, dataroot, namelist_file, phase):
+        meshes = []
+        with open(namelist_file, 'r') as f:
+            namelist = json.load(f)
+        if phase in ["train", "timer"]:
+            dataset = namelist['train']
+        elif phase in ['test', "retrieval"]:
+            dataset = namelist['test']
+        classes = list(dataset.keys())
+        for target in classes:
+            items = dataset[target] # os.path.join(dataroot, x)
+            meshes += items
+        return meshes
 
 
 
