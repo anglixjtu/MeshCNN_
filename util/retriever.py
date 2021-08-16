@@ -7,6 +7,7 @@ from torch_geometric.nn import global_mean_pool, global_add_pool, global_max_poo
 import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import json
+import math
 
 class Retriever:
     def __init__(self, opt):
@@ -202,10 +203,14 @@ class Retriever:
         """
         dcg = 0
         dcg_gt = 0
-        for i, pred_label in enumerate(label_list[:K]):
+        if gt_label == label_list[0]:
+            dcg += 1
+        dcg_gt += 1
+
+        for i, pred_label in enumerate(label_list[1:K]): # iterate from rank 2
             if gt_label == pred_label:
-                dcg += 1 * ((i+1)**-0.5)
-            dcg_gt += 1 * ((i+1)**-0.5)
+                dcg += 1 / math.log(i+2, 2)
+            dcg_gt += 1 / math.log(i+2, 2)
         dcg /= dcg_gt
 
         return dcg
