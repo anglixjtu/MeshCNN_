@@ -1,12 +1,65 @@
 import numpy as np
-import os
-import ntpath
 import pyvista as pv
 import trimesh as tm
 import time
 
+def compute_features(mesh, file, opt):
+    # by Ang Li
 
-def sample_and_compute_features(mesh_tm, file, opt):
+    class MeshPrep:
+        def __getitem__(self, item):
+            return eval('self.' + item)
+
+    mesh_data = MeshPrep()
+    mesh_data.vs = mesh_data.edges = None
+    mesh_data.gemm_edges = mesh_data.sides = None
+    mesh_data.edges_count = None
+    mesh_data.ve = None
+    mesh_data.v_mask = None
+    mesh_data.filename = 'unknown'
+    mesh_data.edge_lengths = None
+    mesh_data.edge_areas = []
+    nfaces_target = opt.ninput_edges / 1.5
+
+    faces = mesh.face.reshape(-1, 3).numpy()
+    mesh_data.vs = mesh.pos.numpy()
+    # remove non-manifold vertices and edges
+    if opt.sample_mesh == 'trimesh':
+        mesh_tm = tm.Trimesh(vertices=mesh_data.vs, faces=faces)
+        if len(mesh_tm.faces) < nfaces_target - 50:
+            nsub = max(1, round((nfaces_target/len(faces))**0.25))
+            for i in range(nsub):
+                mesh_tm = mesh_tm.subdivide()
+        if len(mesh_tm.faces) > nfaces_target + 50:
+            mesh_tm = mesh_tm.simplify_quadratic_decimation(nfaces_target)
+
+        mesh_data.vs, faces = mesh_tm.vertices, mesh_tm.faces
+    faces, face_areas = remove_non_manifolds(mesh_data, faces)
+    faces = remove_isolated_vertices(mesh_data, faces)
+
+    if opt.num_aug > 1:   # TODO: check the right augmentations
+        faces = augmentation(mesh_data, opt, faces)
+    build_gemm(mesh_data, faces, face_areas)
+
+    if opt.num_aug > 1:
+        post_augmentation(mesh_data, opt)
+
+    start_t = time.time()
+    if opt.input_nc == 3:
+        mesh_data.features = extract_features_3(mesh_data, [dihedral_angle_areas])
+    elif opt.input_nc == 5:
+        mesh_data.features = extract_features(mesh_data)
+    elif opt.input_nc == 7:
+        mesh_data.features = extract_features_3(mesh_data,
+        [dihedral_angle_areas, symmetric_opposite_angles, symmetric_ratios])
+    end_t = time.time()
+    opt.t_ef += end_t - start_t
+
+    return mesh_data
+
+
+
+def sample_and_compute_features(mesh_tm, opt):
     # by Ang Li
 
     class MeshPrep:
@@ -23,10 +76,15 @@ def sample_and_compute_features(mesh_tm, file, opt):
     mesh_data.edge_lengths = None
     mesh_data.edge_areas = []
 
-    mesh_tm = tm.load(file)
-    
+    #print('before: %d'%len(mesh_tm.faces))
+
     start_t = time.time()
-    mesh_pv, faces, face_areas = sample_mesh(mesh_tm, mesh_data, opt.ninput_edges, opt.sample_mesh)
+    if opt.sample_mesh == 'trimesh':
+        mesh_out, faces, face_areas = sample_mesh_tm(mesh_tm, mesh_data, 
+    opt.ninput_edges, opt.sample_mesh)
+    else:
+        mesh_out, faces, face_areas = sample_mesh(mesh_tm, mesh_data, 
+    opt.ninput_edges, opt.sample_mesh)
     
     if opt.num_aug > 1: #TODO: check the right augmentations for mechanical data
         faces = augmentation(mesh_data, opt, faces)
@@ -41,13 +99,19 @@ def sample_and_compute_features(mesh_tm, file, opt):
         mesh_data.gemm_edges = mesh_data.sides = None
         mesh_data.edges_count = None
         mesh_data.ve = None
-        mesh_pv = mesh_pv.decimate(0.01)
-        
-        mesh_pv, faces, face_areas = sample_mesh(mesh_pv, mesh_data, opt.ninput_edges, opt.sample_mesh, rate=0.01)
+
+        if opt.sample_mesh == 'trimesh':
+            mesh_out, faces, face_areas = sample_mesh_tm(mesh_out, mesh_data, 
+    opt.ninput_edges, opt.sample_mesh, rate=0.01)
+        else:
+            mesh_out, faces, face_areas = sample_mesh(mesh_out, mesh_data, 
+    opt.ninput_edges, opt.sample_mesh, rate=0.01)
 
         if opt.num_aug > 1:
             faces = augmentation(mesh_data, opt, faces)
         build_gemm(mesh_data, faces, face_areas)
+
+    #print('after: %d'%len(faces))
     end_t = time.time()
     opt.t_pp += end_t - start_t
 
@@ -61,7 +125,7 @@ def sample_and_compute_features(mesh_tm, file, opt):
     end_t = time.time()
     opt.t_ef += end_t - start_t
 
-    return mesh_pv, mesh_data
+    return mesh_out, mesh_data
 
 # Preprocess methods by Ang Li
 def sample_mesh(mesh, mesh_data, ninput_edges, sample_mesh=True, rate=None):
@@ -75,6 +139,7 @@ def sample_mesh(mesh, mesh_data, ninput_edges, sample_mesh=True, rate=None):
             for i in range(nsub):
                 mesh = mesh.subdivide()
             nfaces = len(mesh.faces)
+
         # convert from trimesh to pyvista
         vertices = mesh.vertices
         faces = np.concatenate((np.ones((len(mesh.faces), 1))*3, mesh.faces), axis=1)
@@ -87,9 +152,33 @@ def sample_mesh(mesh, mesh_data, ninput_edges, sample_mesh=True, rate=None):
     else:
         mesh = mesh.decimate(rate)
 
- 
     faces = mesh.faces.reshape(-1, 4)[:, 1:4]
     mesh_data.vs = np.array(mesh.points)
+    # remove non-manifold vertices and edges
+    faces, face_areas = remove_non_manifolds(mesh_data, faces)
+    faces = remove_isolated_vertices(mesh_data, faces)
+    return mesh, faces, face_areas
+
+def sample_mesh_tm(mesh, mesh_data, ninput_edges, sample_mesh=True, rate=None):
+    nfaces_target = ninput_edges / 1.5
+    nfaces = len(mesh.faces)
+
+    if rate is None:
+        # Subdivide the mesh if the number of faces is less than a threshold
+        if (nfaces < nfaces_target) and (rate is None) and (sample_mesh):
+            nsub = max(1, round((nfaces_target/nfaces)**0.25))
+            for i in range(nsub):
+                mesh = mesh.subdivide()
+            nfaces = len(mesh.faces)
+            
+        # Decimate the mesh if the number of faces is larger than a threshold
+        if (nfaces > nfaces_target) and (sample_mesh):
+            mesh = mesh.simplify_quadratic_decimation(nfaces_target)
+    else:
+        mesh = mesh.simplify_quadratic_decimation(round(nfaces*(1-rate)))
+
+    faces = mesh.faces
+    mesh_data.vs = mesh.vertices
     # remove non-manifold vertices and edges
     faces, face_areas = remove_non_manifolds(mesh_data, faces)
     faces = remove_isolated_vertices(mesh_data, faces)
@@ -364,6 +453,20 @@ def extract_features(mesh):
             print(e)
             raise ValueError(mesh.filename, 'bad features')
 
+def extract_features_3(mesh, extractors):
+    features = []
+    edge_points = get_edge_points(mesh)
+    set_edge_lengths(mesh, edge_points)
+    with np.errstate(divide='raise'):
+        try:
+            for extractor in extractors:
+                feature = extractor(mesh, edge_points)
+                features.append(feature)
+            return np.concatenate(features, axis=0)
+        except Exception as e:
+            print(e)
+            raise ValueError(mesh.filename, 'bad features')
+
 
 def dihedral_angle(mesh, edge_points):
     normals_a = get_normals(mesh, edge_points, 0)
@@ -371,6 +474,16 @@ def dihedral_angle(mesh, edge_points):
     dot = np.sum(normals_a * normals_b, axis=1).clip(-1, 1)
     angles = np.expand_dims(np.pi - np.arccos(dot), axis=0)
     return angles
+
+def dihedral_angle_areas(mesh, edge_points):
+    normals_a, areas_a = get_normals_areas(mesh, edge_points, 0)
+    normals_b, areas_b = get_normals_areas(mesh, edge_points, 3)
+    dot = np.sum(normals_a * normals_b, axis=1).clip(-1, 1)
+    angles = np.expand_dims(np.pi - np.arccos(dot), axis=0)
+    max_area = areas_a.max()
+    areas_a /= max_area
+    areas_b /= max_area
+    return np.concatenate((angles, areas_a, areas_b), axis=0)
 
 
 def symmetric_opposite_angles(mesh, edge_points):
@@ -435,20 +548,36 @@ def get_side_points(mesh, edge_id):
         second_vertex = 1
     if edge_d[1] in edge_e:
         third_vertex = 1
-    return [edge_a[first_vertex], edge_a[1 - first_vertex], edge_b[second_vertex], edge_d[third_vertex]]
+    return [edge_a[first_vertex], edge_a[1 - first_vertex], \
+        edge_b[second_vertex], edge_d[third_vertex]]
 
 
 def get_normals(mesh, edge_points, side):
-    edge_a = mesh.vs[edge_points[:, side // 2 + 2]] - mesh.vs[edge_points[:, side // 2]]
-    edge_b = mesh.vs[edge_points[:, 1 - side // 2]] - mesh.vs[edge_points[:, side // 2]]
+    edge_a = mesh.vs[edge_points[:, side // 2 + 2]] - \
+        mesh.vs[edge_points[:, side // 2]]
+    edge_b = mesh.vs[edge_points[:, 1 - side // 2]] - \
+        mesh.vs[edge_points[:, side // 2]]
     normals = np.cross(edge_a, edge_b)
     div = fixed_division(np.linalg.norm(normals, ord=2, axis=1), epsilon=0.1)
     normals /= div[:, np.newaxis]
     return normals
 
+def get_normals_areas(mesh, edge_points, side):
+    edge_a = mesh.vs[edge_points[:, side // 2 + 2]] - \
+        mesh.vs[edge_points[:, side // 2]]
+    edge_b = mesh.vs[edge_points[:, 1 - side // 2]] - \
+        mesh.vs[edge_points[:, side // 2]]
+    normals = np.cross(edge_a, edge_b)
+    areas = np.linalg.norm(normals, ord=2, axis=1)
+    div = fixed_division(areas, epsilon=0.1)
+    normals /= div[:, np.newaxis]
+    return normals, 0.5 * areas.reshape(1, -1)
+
 def get_opposite_angles(mesh, edge_points, side):
-    edges_a = mesh.vs[edge_points[:, side // 2]] - mesh.vs[edge_points[:, side // 2 + 2]]
-    edges_b = mesh.vs[edge_points[:, 1 - side // 2]] - mesh.vs[edge_points[:, side // 2 + 2]]
+    edges_a = mesh.vs[edge_points[:, side // 2]] - \
+        mesh.vs[edge_points[:, side // 2 + 2]]
+    edges_b = mesh.vs[edge_points[:, 1 - side // 2]] - \
+        mesh.vs[edge_points[:, side // 2 + 2]]
 
     edges_a /= fixed_division(np.linalg.norm(edges_a, ord=2, axis=1), epsilon=0.1)[:, np.newaxis]
     edges_b /= fixed_division(np.linalg.norm(edges_b, ord=2, axis=1), epsilon=0.1)[:, np.newaxis]

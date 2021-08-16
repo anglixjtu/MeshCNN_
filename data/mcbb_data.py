@@ -9,22 +9,20 @@ from util.util import pad, is_mesh_file
 import numpy as np
 import pickle
 import time
+import json
 
 
 class MCBBDataset(Dataset):
     def __init__(self, opt, transform=None, pre_transform=None):
         super(MCBBDataset, self).__init__(opt, transform, pre_transform)
 
-        
-        self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) if opt.gpu_ids else torch.device('cpu')
+        self.device = torch.device('cuda:{}'.format(opt.gpu_ids[0])) \
+            if opt.gpu_ids else torch.device('cpu')
         self.root = opt.dataroot
-        if opt.phase in ["train", "retrieval", "timer"]:
-            self.namelist_file = opt.train_namelist
-        elif opt.phase == "test":
-            self.namelist_file = opt.test_namelist
+        self.namelist_file = opt.train_namelist
         self.dir = os.path.join(opt.dataroot)
-        # self.classes, self.class_to_idx = self.find_classes(os.path.join(self.dir, opt.phase))
-        self.paths, self.classes, self.class_to_idx = self.make_dataset_by_class_from_namelist(self.root, self.namelist_file)# added by ang li
+        self.paths, self.classes, self.class_to_idx = \
+            self.make_dataset(self.root, self.namelist_file, opt.phase)
         self.nclasses = len(self.classes)
         self.size = len(self.paths)
         self.mean = 0
@@ -39,7 +37,6 @@ class MCBBDataset(Dataset):
         self.opt = opt
         self.get_mean_std(opt) #modified by Ang Li
 
-        
 
     def len(self):
         return self.size
@@ -47,15 +44,22 @@ class MCBBDataset(Dataset):
     def get(self, idx):
         path = self.paths[idx][0]
         label = self.paths[idx][1]
-        
+
+        #print(path)
+
+        if path == "G:/dataset/MCB_B/MCB_B/train/rotor/00067947.obj":
+            debug = True
         mesh_in = tm.load(path)
 
         #print("Number of faces before process is %d"%(len(mesh_in.faces)))
 
-        mesh_pv, meshcnn_data = sample_and_compute_features(mesh_in, path, self.opt)
-       
+        mesh_pv, meshcnn_data = sample_and_compute_features(mesh_in, self.opt)
+
         start_t = time.time()
-        edge_features = pad(meshcnn_data.features, self.opt.ninput_edges)
+        if meshcnn_data.features.shape[1] < self.opt.ninput_edges:
+            edge_features = pad(meshcnn_data.features, self.opt.ninput_edges)
+        else:
+            edge_features = meshcnn_data.features
         edge_features  = (edge_features - self.mean) / self.std
         edge_connections = self.get_edge_connection(meshcnn_data.gemm_edges)
 
@@ -106,6 +110,26 @@ class MCBBDataset(Dataset):
                         item = (path, class_to_idx[target])
                         meshes.append(item)
         return meshes
+
+    @staticmethod
+    def make_dataset(dataroot, namelist_file, phase):
+        meshes = []
+        class_to_idx = {}
+        class_count = 0
+        with open(namelist_file, 'r') as f:
+            namelist = json.load(f)
+        if phase in ["train", "timer"]:
+            dataset = namelist['train']
+        elif phase in ['test', "retrieval"]:
+            dataset = namelist['test']
+        classes = list(dataset.keys())
+        for target in classes:
+            class_to_idx[target] = class_count
+            items = [(os.path.join(dataroot, x), class_to_idx[target])\
+                for x in dataset[target]]
+            class_count += 1
+            meshes += items
+        return meshes, classes, class_to_idx
 
     @staticmethod
     def make_dataset_by_class_from_namelist(dataroot, namelist_file):
