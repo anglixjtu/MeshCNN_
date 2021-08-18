@@ -15,8 +15,14 @@ def run_retrieve():
 
     fea_db = retriever.extract_database_features(model, dataset)
 
-    query_set = dataset
-    fea_q = fea_db
+    query_namelist =  ['test/gear/00070120.obj', 'test/gear/00000219.obj', 'test/motor/00053644.obj', 'test/motor/00064756.obj', 'test/pin/00052497.obj', 'test/pin/00052388.obj', 'test/rotor/00067691.obj', 'test/rotor/00067746.obj', 'test/washer/00040300.obj', 'test/washer/00041575.obj']
+
+    query_idx = []
+    for name in query_namelist:
+        query_idx += [retriever.database_namelist.index(name)]
+
+    query_set = dataset[query_idx]
+    fea_q = fea_db[query_idx, :]
 
     #np.random.shuffle(fea_db) 
 
@@ -25,13 +31,10 @@ def run_retrieve():
 
     retriever.show_embedding(fea_db, idx_query)
 
-    retriever.evaluate_results(idx_query, ranked_list)
+    #retriever.evaluate_results(idx_query, ranked_list)
 
     i=0
-    #query = dataset[i]
-    #dist, ranked_list = retriever.retrive_one_example(model, query, dataloader, fea_db)
-
-    retriever.show_results(i, ranked_list, dissm)
+    retriever.show_results(query_idx, ranked_list, dissm)
 
     debug = 295
 

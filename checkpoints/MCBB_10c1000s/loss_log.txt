@@ -1,0 +1,23 @@
+================ Training Loss (Tue Aug 17 20:26:26 2021) ================
+================ Training Loss (Tue Aug 17 20:29:03 2021) ================
+================ Training Loss (Tue Aug 17 20:29:31 2021) ================
+================ Training Loss (Tue Aug 17 20:30:30 2021) ================
+================ Training Loss (Tue Aug 17 20:34:17 2021) ================
+================ Training Loss (Tue Aug 17 20:36:33 2021) ================
+================ Training Loss (Tue Aug 17 20:38:03 2021) ================
+================ Training Loss (Tue Aug 17 20:38:40 2021) ================
+================ Training Loss (Tue Aug 17 20:46:32 2021) ================
+================ Training Loss (Tue Aug 17 20:47:28 2021) ================
+================ Training Loss (Tue Aug 17 20:57:28 2021) ================
+================ Training Loss (Tue Aug 17 20:59:14 2021) ================
+(epoch: 1, iters: 10, time: 0.175, data: 10.863) loss: 2.284 
+(epoch: 1, iters: 20, time: 0.177, data: 0.992) loss: 2.398 
+(epoch: 1, iters: 30, time: 0.237, data: 0.411) loss: 2.242 
+(epoch: 1, iters: 40, time: 0.221, data: 0.002) loss: 2.230 
+(epoch: 1, iters: 50, time: 0.218, data: 0.002) loss: 2.350 
+(epoch: 1, iters: 60, time: 0.219, data: 0.002) loss: 2.322 
+(epoch: 1, iters: 70, time: 0.212, data: 0.003) loss: 2.351 
+(epoch: 1, iters: 80, time: 0.216, data: 0.002) loss: 2.271 
+================ Training Loss (Wed Aug 18 08:46:47 2021) ================
+================ Training Loss (Wed Aug 18 08:55:04 2021) ================
+================ Training Loss (Wed Aug 18 08:55:50 2021) ================
