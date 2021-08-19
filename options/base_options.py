@@ -14,12 +14,13 @@ class BaseOptions:
         self.parser.add_argument('--dataroot', required=True, help='path to meshes (should have subfolders train, test)')
         self.parser.add_argument('--train_namelist', required=True, help='path to namelist file for training items')
         self.parser.add_argument('--test_namelist', required=True, help='path to namelist file for training items')
-        self.parser.add_argument('--sample_mesh', type=int, default=1, help='preprocess mesh data or not')
+        self.parser.add_argument('--sample_mesh', type=str, default="trimesh", help='preprocess mesh data or not')
         self.parser.add_argument('--dataset_mode', choices={"mcb_b"}, default='mcb_b')
         self.parser.add_argument('--ninput_edges', type=int, default=750, help='# of input edges (will include dummy edges)')
         self.parser.add_argument('--max_dataset_size', type=int, default=float("inf"), help='Maximum number of samples per epoch')
         # network params
         self.parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
+        self.parser.add_argument('--input_nc', type=int, default=5, help='input number of feature channels')
         self.parser.add_argument('--arch', type=str, default='mconvnet', help='selects network to use') #todo add choices
         self.parser.add_argument('--resblocks', type=int, default=0, help='# of res blocks')
         self.parser.add_argument('--fc_n', type=int, default=100, help='# between fc and nclasses') #todo make generic
