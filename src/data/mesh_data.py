@@ -3,7 +3,7 @@ import os
 import torch
 from torch_geometric.data import Data, Dataset
 import trimesh as tm
-from src.data.preprocess import sample_and_compute_features
+from src.data.preprocess import compute_features
 from src.util.util import pad
 import numpy as np
 import pickle
@@ -31,19 +31,22 @@ class MeshDataset(Dataset):
         opt.t_load = 0
         opt.t_pp = 0  # time for preprocess
         opt.t_ef = 0  # time for extract edge features
+        self.saveroot = './data/processed/'
+        self.ninput_edges = opt.ninput_edges
+        self.sample_and_save()
 
         self.opt = opt
-        #self.get_mean_std(opt)
+        self.get_mean_std(opt)
 
     def len(self):
         return self.size
 
     def get(self, idx):
-        path = self.paths[idx]
+        path = self.pp_paths[idx]
 
         mesh_in = tm.load(path)
 
-        mesh_out, meshcnn_data = sample_and_compute_features(mesh_in, self.opt)
+        mesh_out, meshcnn_data = compute_features(mesh_in, self.opt)
 
         start_t = time.time()
         if meshcnn_data.features.shape[1] > self.opt.ninput_edges:
@@ -169,3 +172,31 @@ class MeshDataset(Dataset):
             self.mean = transform_dict['mean']
             self.std = transform_dict['std']
             self.ninput_channels = transform_dict['ninput_channels']
+
+    def sample_and_save(self):
+        nfaces_target = self.ninput_edges / 1.5
+        self.pp_paths = []
+
+        for path in self.paths:
+            phase = path.split('/')[-3]
+            target = path.split('/')[-2]
+            obj_name = path.split('/')[-1]
+            mesh_in = tm.load(path)
+            nfaces = len(mesh_in.faces)
+            mesh_out = mesh_in
+            save_dir = os.path.join(self.saveroot, phase, target)
+            pp_path = os.path.join(save_dir, obj_name)
+            self.pp_paths.append(pp_path)
+            if not os.path.exists(pp_path):
+                # upsample
+                if nfaces < nfaces_target:
+                    nsub = max(1, round((nfaces_target/nfaces)**0.25))
+                    for i in range(nsub):
+                        mesh_out = mesh_out.subdivide()
+                # downsample
+                mesh_out = mesh_out.simplify_quadratic_decimation(nfaces_target)
+
+                if not os.path.exists(save_dir):
+                    os.makedirs(save_dir)
+                mesh_out.export(pp_path)
+                

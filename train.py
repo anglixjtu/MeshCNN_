@@ -30,6 +30,7 @@ def run_training(opt):
         epoch_iter = 0
 
         # train the network
+        model.net.train()
         for i, data in enumerate(dataloaders['train']):
             iter_start_time = time.time()
             if total_steps % opt.print_freq == 0:
@@ -66,6 +67,7 @@ def run_training(opt):
             writer.plot_model_wts(model, epoch)'''
 
         # test
+        model.net.eval()
         acc_counter = MetricCounter()
         for i, data in enumerate(dataloaders['test']):
             model.set_input(data)

@@ -2,6 +2,50 @@ import numpy as np
 import time
 
 
+def compute_features(mesh_tm, opt):
+    # by Ang Li
+
+    class MeshPrep:
+        def __getitem__(self, item):
+            return eval('self.' + item)
+
+    mesh_data = MeshPrep()
+    mesh_data.vs = mesh_data.edges = None
+    mesh_data.gemm_edges = mesh_data.sides = None
+    mesh_data.edges_count = None
+    mesh_data.ve = None
+    mesh_data.v_mask = None
+    mesh_data.filename = 'unknown'
+    mesh_data.edge_lengths = None
+    mesh_data.edge_areas = []
+
+    start_t = time.time()
+    mesh_out = mesh_tm
+    faces = mesh_out.faces
+    mesh_data.vs = mesh_out.vertices
+    # remove non-manifold vertices and edges
+    faces, face_areas = remove_non_manifolds(mesh_data, faces)
+    faces = remove_isolated_vertices(mesh_data, faces)
+
+    if opt.num_aug > 1:
+        # TODO: check the right augmentations for mechanical data
+        faces = augmentation(mesh_data, opt, faces)
+    build_gemm(mesh_data, faces, face_areas)
+
+    end_t = time.time()
+    opt.t_pp += end_t - start_t
+
+    if opt.num_aug > 1:
+        post_augmentation(mesh_data, opt)
+
+    start_t = time.time()
+    mesh_data.features = extract_features(mesh_data)
+    end_t = time.time()
+    opt.t_ef += end_t - start_t
+
+    return mesh_out, mesh_data
+
+
 def sample_and_compute_features(mesh_tm, opt):
     # by Ang Li
 
@@ -25,11 +69,19 @@ def sample_and_compute_features(mesh_tm, opt):
                                                      mesh_data,
                                                      opt.ninput_edges,
                                                      opt.sample_mesh)
-    else:
+    elif opt.sample_mesh == 'pyvista':
         mesh_out, faces, face_areas = sample_mesh(mesh_tm,
                                                   mesh_data,
                                                   opt.ninput_edges,
                                                   opt.sample_mesh)
+    else:
+        mesh_out = mesh_tm
+        faces = mesh_out.faces
+        mesh_data.vs = mesh_out.vertices
+        # remove non-manifold vertices and edges
+        faces, face_areas = remove_non_manifolds(mesh_data, faces)
+        faces = remove_isolated_vertices(mesh_data, faces)
+        # TODO: clean this part
 
     if opt.num_aug > 1:
         # TODO: check the right augmentations for mechanical data
@@ -37,7 +89,8 @@ def sample_and_compute_features(mesh_tm, opt):
     build_gemm(mesh_data, faces, face_areas)
 
     # remove edges until the number of edges is less than the threshold
-    while len(mesh_data.edges) > opt.ninput_edges:
+    while (len(mesh_data.edges) > opt.ninput_edges) and\
+          (opt.sample_mesh in ['trimesh', 'pyvista']):
         mesh_data.edge_areas = []
         mesh_data.edge_lengths = None
         mesh_data.edges = None
@@ -57,6 +110,13 @@ def sample_and_compute_features(mesh_tm, opt):
                                                       opt.ninput_edges,
                                                       opt.sample_mesh,
                                                       rate=0.01)
+        else:
+            mesh_out = mesh_tm
+            faces = mesh_out.faces
+            mesh_data.vs = mesh_out.vertices
+            # remove non-manifold vertices and edges
+            faces, face_areas = remove_non_manifolds(mesh_data, faces)
+            faces = remove_isolated_vertices(mesh_data, faces)
 
         if opt.num_aug > 1:
             faces = augmentation(mesh_data, opt, faces)
@@ -78,29 +138,30 @@ def sample_and_compute_features(mesh_tm, opt):
 
 # Preprocess methods by Ang Li
 def sample_mesh(mesh, mesh_data, ninput_edges,
-                sample_mesh=True, rate=None):
-    import pyvista as pv
+                sample_mesh='trimesh', rate=None):
     nfaces_target = ninput_edges / 1.5
     nfaces = len(mesh.faces)
 
     if rate is None:
         # Subdivide the mesh if the number of faces is less than a threshold
-        if (nfaces < nfaces_target) and (rate is None) and (sample_mesh):
+        if (nfaces < nfaces_target) and (rate is None):
             nsub = max(1, round((nfaces_target/nfaces)**0.25))
             for i in range(nsub):
                 mesh = mesh.subdivide()
             nfaces = len(mesh.faces)
 
         # convert from trimesh to pyvista
-        vertices = mesh.vertices
-        faces = np.concatenate((np.ones((len(mesh.faces), 1))*3,
-                                mesh.faces), axis=1)
-        faces = np.hstack(faces)
-        mesh = pv.PolyData(vertices, faces.astype(np.int64))
-        # Decimate the mesh if the number of faces is larger than a threshold
-        if (nfaces > nfaces_target) and (sample_mesh):
-            rate = 1.0 - nfaces_target/nfaces
-            mesh = mesh.decimate(rate)
+        if sample_mesh == 'pyvista':
+            import pyvista as pv
+            vertices = mesh.vertices
+            faces = np.concatenate((np.ones((len(mesh.faces), 1))*3,
+                                    mesh.faces), axis=1)
+            faces = np.hstack(faces)
+            mesh = pv.PolyData(vertices, faces.astype(np.int64))
+            # Decimate the mesh if #faces is larger than a threshold
+            if (nfaces > nfaces_target):
+                rate = 1.0 - nfaces_target/nfaces
+                mesh = mesh.decimate(rate)
     else:
         mesh = mesh.decimate(rate)
 
