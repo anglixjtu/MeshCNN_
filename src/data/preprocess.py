@@ -51,7 +51,7 @@ def sample_and_compute_features(mesh_tm, opt):
                                                          opt.ninput_edges,
                                                          opt.sample_mesh,
                                                          rate=0.01)
-        else:
+        elif opt.sample_mesh == 'pyvista':
             mesh_out, faces, face_areas = sample_mesh(mesh_out,
                                                       mesh_data,
                                                       opt.ninput_edges,

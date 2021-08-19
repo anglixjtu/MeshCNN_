@@ -70,6 +70,12 @@ class Model:
         self.backward(out)
         self.optimizer.step()
 
+    def update_learning_rate(self):
+        """update learning rate (called once every epoch)"""
+        self.scheduler.step()
+        lr = self.optimizer.param_groups[0]['lr']
+        print('learning rate = %.7f' % lr)
+
     def test(self):
         """tests model
         returns: number correct and total number

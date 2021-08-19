@@ -2,12 +2,6 @@ from torch.optim import lr_scheduler
 import torch
 
 
-def update_learning_rate(optimizer, scheduler):
-    """update learning rate (called once every epoch)"""
-    scheduler.step()
-    lr = optimizer.param_groups[0]['lr']
-    print('learning rate = %.7f' % lr)
-
 
 def get_scheduler(optimizer, opt):
     if opt.lr_policy == 'lambda':
