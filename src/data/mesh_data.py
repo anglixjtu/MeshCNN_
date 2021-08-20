@@ -149,7 +149,10 @@ class MeshDataset(Dataset):
             for i, data in enumerate(self):
                 if i % 500 == 0:
                     print('{} of {}'.format(i, self.size))
-                features = data[0].x
+                if self.opt.mode == 'classification':
+                    features = data[0].x
+                elif self.opt.mode == 'autoencoder':
+                    features = data.x
                 features = features.numpy()
                 mean = mean + features.mean(axis=0)
                 std = std + features.std(axis=0)
@@ -196,4 +199,4 @@ class MeshDataset(Dataset):
                 if not os.path.exists(save_dir):
                     os.makedirs(save_dir)
                 mesh_out.export(pp_path)
-                
+        
