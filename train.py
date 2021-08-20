@@ -71,9 +71,8 @@ def run_training(opt):
         acc_counter = MetricCounter()
         for i, data in enumerate(dataloaders['test']):
             model.set_input(data)
-            ncorrect, nexamples = model.test()
-            accuracy = float(ncorrect) / nexamples
-            acc_counter.update(accuracy, n=nexamples)
+            accuracy = model.test()
+            acc_counter.update(accuracy, n=1)
         logger.record_acc(epoch, acc_counter.avg)
 
 

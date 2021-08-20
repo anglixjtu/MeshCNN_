@@ -60,6 +60,6 @@ class Logger:
         self.loggers['loss'].info(message)
 
     def record_acc(self, epoch, acc):
-        message = 'epoch: {}, TEST ACC: [{:.5} %]\n' \
-            .format(epoch, acc * 100)
+        message = 'epoch: {}, TEST ACC/ERR: [{:.2}]\n' \
+            .format(epoch, acc)
         self.loggers['testacc'].info(message)

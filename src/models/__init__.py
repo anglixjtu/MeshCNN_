@@ -3,6 +3,7 @@ from os.path import join
 from src.util.util import print_network
 from torch.nn import init
 from .trainer import define_loss, get_scheduler
+import torch.nn.functional as F
 
 class Model:
     """ Class for CNN models
@@ -44,15 +45,23 @@ class Model:
         self.load_ckpt()
 
     def set_input(self, data):
-        labels = data[1]
-        data = data[0]
-        # set inputs
+        if self.mode == 'classification':
+            labels = data[1]
+            data = data[0]
+            # set inputs
 
-        if not hasattr(data, 'batch'):
-            data.batch = torch.zeros(len(data.x), 1)
-            data.batch = data.batch.long()
-        self.data = data.to(self.device)
-        self.labels = labels.long().to(self.device)
+            if not hasattr(data, 'batch'):
+                data.batch = torch.zeros(len(data.x), 1)
+                data.batch = data.batch.long()
+            self.data = data.to(self.device)
+            self.labels = labels.long().to(self.device)
+        elif self.mode == 'autoencoder':
+            # set inputs
+
+            if not hasattr(data, 'batch'):
+                data.batch = torch.zeros(len(data.x), 1)
+                data.batch = data.batch.long()
+            self.data = data.to(self.device)
 
     def forward(self):
         out, embeddings = self.net(self.data.x,
@@ -61,7 +70,10 @@ class Model:
         return out, embeddings
 
     def backward(self, out):
-        self.loss = self.criterion(out, self.labels.reshape(-1,))
+        if self.mode == 'classification':
+            self.loss = self.criterion(out, self.labels.reshape(-1,))
+        elif self.mode == 'autoencoder':
+            self.loss = self.criterion(out, self.data.x)
         self.loss.backward()
 
     def optimize_parameters(self):
@@ -83,15 +95,19 @@ class Model:
         with torch.no_grad():
             out, _ = self.forward()
             # compute number of correct
-            pred_class = out.data.max(1)[1]
-            label_class = self.labels
-            correct = self.get_accuracy(pred_class, label_class)
-        return correct, len(label_class)
+            if self.mode == 'classification':
+                pred_class = out.data.max(1)[1]
+                label_class = self.labels
+                accuracy = self.get_accuracy(pred_class, label_class)
+            elif self.mode == 'autoencoder':
+                accuracy = ((out - self.data.x).abs()).sum() / len(out)
+
+        return accuracy
 
     def get_accuracy(self, pred, labels):
         """computes accuracy for classification / segmentation """
         correct = pred.eq(labels).sum()
-        return correct
+        return correct/len(labels)
 
     def load_ckpt(self):
         """select the checkpoint file for loading"""
@@ -137,10 +153,19 @@ class Model:
         net = None
 
         if opt.arch == 'mesh_cls':
-            from .classification_nets import MeshMLPNRNet
-            net = MeshMLPNRNet(opt.input_nc, opt.ncf, opt.nclasses,
-                               opt.ninput_edges, opt.pool_res, opt.fc_n,
-                               opt.norm, opt.batch_size, opt.resblocks)
+            from .classification_nets import MeshClsNet
+            net = MeshClsNet(opt.input_nc, opt.ncf,
+                             opt.nclasses, opt.ninput_edges,
+                             opt.pool_res, opt.fc_n, opt.norm)
+        elif opt.arch == 'mesh_ae':
+            from .autoencoder_nets import BaseUNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            depth = len(pool_ratios)
+            net = BaseUNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+
         else:
             raise NotImplementedError('Encoder model name [%s]'
                                       'is not recognized' % opt.arch)
@@ -161,7 +186,8 @@ class Model:
         def init_func(m):
             classname = m.__class__.__name__
             if hasattr(m, 'weight') and (classname.find('Conv') != -1 or
-                                         classname.find('Linear') != -1):
+                                         classname.find('Linear') != -1 or
+                                         classname.find('GCNConv') != -1):
                 if init_type == 'normal':
                     init.normal_(m.weight.data, 0.0, init_gain)
                 elif init_type == 'xavier':
@@ -173,7 +199,8 @@ class Model:
                 else:
                     raise NotImplementedError('initialization method [%s] '
                                               'is not implemented' % init_type)
-            elif classname.find('BatchNorm2d') != -1:
+            elif (classname.find('BatchNorm2d') != -1 or
+                  classname.find('BatchNorm1d') != -1):
                 init.normal_(m.weight.data, 1.0, init_gain)
                 init.constant_(m.bias.data, 0.0)
         net.apply(init_func)

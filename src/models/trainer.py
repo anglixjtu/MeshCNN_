@@ -2,7 +2,6 @@ from torch.optim import lr_scheduler
 import torch
 
 
-
 def get_scheduler(optimizer, opt):
     if opt.lr_policy == 'lambda':
         def lambda_rule(epoch):
@@ -28,5 +27,7 @@ def get_scheduler(optimizer, opt):
 def define_loss(mode):
     if mode == 'classification':
         loss = torch.nn.CrossEntropyLoss()
+    elif mode == 'autoencoder':
+        loss = torch.nn.MSELoss()
     # TODO: implement loss for autoencoder
     return loss
