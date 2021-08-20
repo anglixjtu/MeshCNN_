@@ -3,7 +3,7 @@ import time
 
 
 def compute_features(mesh_tm, opt):
-    # by Ang Li
+    """compute 5-channel input feature from mesh"""
 
     class MeshPrep:
         def __getitem__(self, item):
@@ -19,7 +19,6 @@ def compute_features(mesh_tm, opt):
     mesh_data.edge_lengths = None
     mesh_data.edge_areas = []
 
-    start_t = time.time()
     mesh_out = mesh_tm
     faces = mesh_out.faces
     mesh_data.vs = mesh_out.vertices
@@ -32,16 +31,10 @@ def compute_features(mesh_tm, opt):
         faces = augmentation(mesh_data, opt, faces)
     build_gemm(mesh_data, faces, face_areas)
 
-    end_t = time.time()
-    opt.t_pp += end_t - start_t
-
     if opt.num_aug > 1:
         post_augmentation(mesh_data, opt)
 
-    start_t = time.time()
     mesh_data.features = extract_features(mesh_data)
-    end_t = time.time()
-    opt.t_ef += end_t - start_t
 
     return mesh_out, mesh_data
 

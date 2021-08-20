@@ -28,12 +28,11 @@ class MeshDataset(Dataset):
         self.ninput_channels = None
         opt.nclasses = self.nclasses
         # for timer
-        opt.t_load = 0
-        opt.t_pp = 0  # time for preprocess
-        opt.t_ef = 0  # time for extract edge features
+        self.time = {'preprocess': 0, 'input_feature': 0}
+        # for preprocess
         self.saveroot = './data/processed/'
         self.ninput_edges = opt.ninput_edges
-        self.sample_and_save()
+        self.sample_save_mesh()
 
         self.opt = opt
         self.get_mean_std(opt)
@@ -49,8 +48,6 @@ class MeshDataset(Dataset):
         mesh_out, meshcnn_data = compute_features(mesh_in, self.opt)
 
         start_t = time.time()
-        if meshcnn_data.features.shape[1] > self.opt.ninput_edges:
-            debug = True
         if meshcnn_data.features.shape[1] < self.opt.ninput_edges:
             edge_features = pad(meshcnn_data.features, self.opt.ninput_edges)
         else:
@@ -66,7 +63,7 @@ class MeshDataset(Dataset):
         graph_data = Data(x=edge_features, edge_index=edge_connections)
 
         end_t = time.time()
-        self.opt.t_ef += end_t - start_t
+        self.time['input_feature'] += end_t - start_t
 
         if self.mode == 'classification':
             label = self.paths[idx].split('/')[-2]
@@ -173,7 +170,7 @@ class MeshDataset(Dataset):
             self.std = transform_dict['std']
             self.ninput_channels = transform_dict['ninput_channels']
 
-    def sample_and_save(self):
+    def sample_save_mesh(self):
         nfaces_target = self.ninput_edges / 1.5
         self.pp_paths = []
 
