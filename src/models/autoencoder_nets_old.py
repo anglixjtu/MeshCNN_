@@ -7,45 +7,61 @@ from torch_geometric.nn import TopKPooling, GCNConv, BatchNorm, global_mean_pool
 from torch_geometric.utils import (add_self_loops, sort_edge_index,
                                    remove_self_loops, to_dense_batch)
 from torch_geometric.utils.repeat import repeat
-from torch.nn import Sequential, Linear, ReLU, BatchNorm1d
+from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
 
 
 class EncoderLayer(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, act=None):
+    def __init__(self, channel_in, channel_out, pool_ratio=0.5,
+                 act=F.relu, norm='batch'):
         super(EncoderLayer, self).__init__()
+        self.pool_ratio = pool_ratio
         self.act = act
+        if pool_ratio < 1:
+            setattr(self, 'pool', TopKPooling(channel_in, pool_ratio))
+        setattr(self, 'mlp_lin', Lin(channel_in, channel_out))
+        setattr(self, 'mlp_norm', BN(channel_out))
+        setattr(self, 'conv', GCNConv(channel_out, channel_out,
+                                      add_self_loops=True, normalize=True,
+                                      improved=True))
+        setattr(self, 'norm', BatchNorm(channel_out))
+        # TODO: check the hyperparameters and norm
 
-        self.mlp = nn.Sequential(Linear(in_channels, out_channels),
-                                 BatchNorm1d(out_channels),
-                                 self.act())
-        self.conv = GCNConv(out_channels, out_channels,
-                            add_self_loops=True, normalize=True)
-        self.bn = BatchNorm(out_channels)
-
-    def forward(self, x, edge_index):
-        x = self.mlp(x)
-        x = self.conv(x, edge_index)
-        if self.act:
-            x = self.bn(x)
-            return self.act()(x)
+    def forward(self, x, edge_index, edge_weight, batch):
+        if self.pool_ratio < 1:
+            x, edge_index, edge_weight,\
+                batch, perm, score = self.pool(x, edge_index,
+                                               edge_weight, batch)
         else:
-            return x
+            perm = 1
+
+        x = self.mlp_lin(x)
+        x = self.act(x)
+        x = self.mlp_norm(x)
+
+        x = self.conv(x, edge_index, edge_weight)
+        x = self.norm(x)
+        x = self.act(x)
+        embedding = x
+        return x, edge_index, edge_weight,\
+            batch, perm, embedding
 
 
 class DecoderLayer(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, act=None):
+    def __init__(self, channel_in, channel_out, act=None):
         super(DecoderLayer, self).__init__()
         self.act = act
-        if self.act:
-            self.conv = nn.Sequential(Linear(in_channels, out_channels),
-                                      BatchNorm1d(out_channels),
-                                      self.act())
-        else:
-            self.conv = nn.Sequential(Linear(in_channels, out_channels))
+        setattr(self, 'conv', GCNConv(channel_in, channel_out,
+                                      add_self_loops=True, normalize=True,
+                                      improved=True))
+        # TODO: check the architecture
 
-    def forward(self, x):
-        x = self.conv(x)
-        return x
+    def forward(self, x, edge_index, edge_weight):
+        x = self.conv(x, edge_index, edge_weight)
+        embedding = x
+        if self.act:
+            return self.act(x), embedding
+        else:
+            return x, embedding
 
 
 class BaseUNet(torch.nn.Module):
@@ -73,52 +89,87 @@ class BaseUNet(torch.nn.Module):
         self.channels = [in_channels] + hidden_channels  # [5, 64, 64, 128, 256, 512]
         self.de_channels = self.channels[::-1]  # [512, 256, 128, 64, 64, 5]
         self.pool_ratios = [1] + pool_ratios  # [1, 0.8, 0.6, 0.4, 0.24]
-        self.act = ReLU
+        self.act = act
         self.sum_res = sum_res  # change de_channels if not sum_res
 
         # construct encoder
-        self.encoder0 = EncoderLayer(5, 64, self.act)
-        self.encoder1 = EncoderLayer(64, 64, self.act)
-        self.encoder2 = EncoderLayer(64, 128, self.act)
-        self.encoder3 = EncoderLayer(128, 256, self.act)
-        self.encoder4 = EncoderLayer(256, 512, self.act)
+        for i, pool_ratio in enumerate(self.pool_ratios):
+            setattr(self, 'encoder{}'.format(i),
+                    EncoderLayer(self.channels[i], self.channels[i + 1],
+                                 pool_ratio=pool_ratio, act=self.act))
 
         # construct decoder
-        self.decoder2 = DecoderLayer(512, 1024, self.act)
-        self.decoder1 = DecoderLayer(1024, 2048, self.act)
-        self.decoder0 = DecoderLayer(2048, 750 * 5)
+        for i in range(len(self.channels)-1, 1, -1):
+            setattr(self, 'decoder{}'.format(i-1),
+                    DecoderLayer(self.channels[i], self.channels[i - 1],
+                                 act=self.act))
+        setattr(self, 'decoder0',
+                DecoderLayer(self.channels[1], self.channels[0],
+                             act=None))
 
     def forward(self, x, edge_index, batch=None):
 
         if batch is None:
             batch = edge_index.new_zeros(x.size(0))
-        batch_size = batch.max() + 1
+        edge_weight = x.new_ones(edge_index.size(1))
         embeddings = {}
+        xs = []
+        edge_indices = [edge_index]
+        edge_weights = [edge_weight]
+        perms = []
 
-        x = self.encoder0(x, edge_index)
-        embeddings['encoder0'] = x
-        x = self.encoder1(x, edge_index)
-        embeddings['encoder1'] = x
-        x = self.encoder2(x, edge_index)
-        embeddings['encoder2'] = x
-        x = self.encoder3(x, edge_index)
-        embeddings['encoder3'] = x
-        x = self.encoder4(x, edge_index)
-        embeddings['encoder4'] = x
+        # encoder
+        for i in range(len(self.channels) - 1):
+            x, edge_index, edge_weight,\
+                batch, perm, embedding = \
+                getattr(self, 'encoder{}'.format(i))(x,
+                                                     edge_index,
+                                                     edge_weight,
+                                                     batch)
+            embeddings['encoder{}'.format(i)] = embedding
+            xs += [x]
+            edge_indices += [edge_index]
+            edge_weights += [edge_weight]
+            perms += [perm]
 
-        x = global_mean_pool(x, batch)
-        embeddings['gb_pool'] = x
 
-        x = self.decoder2(x)
-        embeddings['decoder2'] = x
-        x = self.decoder1(x)
-        embeddings['decoder1'] = x
-        x = self.decoder0(x)
-        embeddings['decoder0'] = x
+        # decoder
+        for i in range(len(self.channels) - 2, 0, -1):
+            res = xs[i-1]
+            edge_index = edge_indices[i+1]
+            edge_weight = edge_weights[i+1]
+            perm = perms[i]
 
-        # x = nn.Tanh()(x)
+            x, embedding = getattr(self, 'decoder{}'.format(i))(x,
+                                                                edge_index,
+                                                                edge_weight)
+
+            up = torch.zeros_like(res)
+            up[perm] = (x + res[perm]) / 2.
+            # non_perm = [x for x in range(len(up)) if x not in perm]
+            # up[non_perm] = res[non_perm]
+            x = up
+            embeddings['decoder{}'.format(i)] = embedding
+
+        # final layer
+        edge_index = edge_indices[0]
+        edge_weight = edge_weights[0]
+        x, embedding = getattr(self, 'decoder0')(x, edge_index, edge_weight)
+        embeddings['decoder0'] = embedding
 
         return x, embeddings
+
+    def augment_adj(self, edge_index, edge_weight, num_nodes):
+        edge_index, edge_weight = remove_self_loops(edge_index, edge_weight)
+        edge_index, edge_weight = add_self_loops(edge_index, edge_weight,
+                                                 num_nodes=num_nodes)
+        edge_index, edge_weight = sort_edge_index(edge_index, edge_weight,
+                                                  num_nodes)
+        edge_index, edge_weight = spspmm(edge_index, edge_weight, edge_index,
+                                         edge_weight, num_nodes, num_nodes,
+                                         num_nodes)
+        edge_index, edge_weight = remove_self_loops(edge_index, edge_weight)
+        return edge_index, edge_weight
 
     def __repr__(self):
         return '{}({}, {}, {}, depth={}, pool_ratios={})'.format(

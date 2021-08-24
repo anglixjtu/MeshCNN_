@@ -29,6 +29,14 @@ class BaseOptions:
         self.parser.add_argument('--ninput_edges',
                                  type=int, default=750,
                                  help='# of input edges')
+        self.parser.add_argument('--knn',
+                                 action='store_true',
+                                 help='use knn to compute neighbors')
+        self.parser.add_argument('--loss',
+                                 type=str,
+                                 default='ce',
+                                 choices={'ce', 'mse', 'chamfer'},
+                                 help='loss function for training')
         self.parser.add_argument('--max_dataset_size', type=int, default=float("inf"), help='Maximum number of samples per epoch')
         # network params
         self.parser.add_argument('--batch_size', type=int, default=16, help='input batch size')

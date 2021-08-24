@@ -1,5 +1,6 @@
 from torch.optim import lr_scheduler
 import torch
+from src.util.losses import ChamferLoss
 
 
 def get_scheduler(optimizer, opt):
@@ -22,12 +23,3 @@ def get_scheduler(optimizer, opt):
                                    'is not implemented',
                                    opt.lr_policy)
     return scheduler
-
-
-def define_loss(mode):
-    if mode == 'classification':
-        loss = torch.nn.CrossEntropyLoss()
-    elif mode == 'autoencoder':
-        loss = torch.nn.MSELoss()
-    # TODO: implement loss for autoencoder
-    return loss

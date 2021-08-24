@@ -18,7 +18,7 @@ def create_dataloader(opt, phase):
         dataloader = DataLoader(dataset, batch_size=opt.batch_size,
                                 shuffle=True,
                                 num_workers=int(opt.num_threads))
-    elif phase in ['test']:
+    elif phase in ['test', 'retrieval']:
         dataset = MeshDataset(opt, ['test'])
         dataloader = DataLoader(dataset, batch_size=1,
                                 shuffle=False,

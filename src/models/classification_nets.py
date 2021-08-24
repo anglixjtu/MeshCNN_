@@ -19,7 +19,8 @@ class MeshClsNet(nn.Module):
         self.ratio = [0.8, 0.6, 0.4, 0.24]
 
         for i, ki in enumerate(self.k[:-1]):
-            setattr(self, 'mlp{}'.format(i), self.MLP(ki, self.k[i + 1], norm))
+            setattr(self, 'mlp_lin{}'.format(i), Lin(ki, self.k[i + 1]))
+            setattr(self, 'mlp_norm{}'.format(i), BN(self.k[i + 1]))
             setattr(self, 'conv{}'.format(i), GCNConv(self.k[i + 1],
                     self.k[i + 1], add_self_loops=True, normalize=True))
             setattr(self, 'norm{}'.format(i), BatchNorm(self.k[i + 1]))
@@ -27,21 +28,17 @@ class MeshClsNet(nn.Module):
                 setattr(self, 'pool{}'.format(i),
                         SAGPooling(self.k[i + 1], ratio=0.8))
 
-        self.fc1 = nn.Linear(self.k[-1], fc_n)
-        self.fc2 = nn.Linear(fc_n, nclasses)
-
-    def MLP(self, channel_in, channel_out, norm='batch'):
-        if norm=='batch':
-            return Seq(Lin(channel_in, channel_out), ReLU(), BN(channel_out))
-        else:
-            return Seq(Lin(channel_in, channel_out), ReLU())
+        self.fc1 = Lin(self.k[-1], fc_n)
+        self.fc2 = Lin(fc_n, nclasses)
 
     def forward(self, x0, edge_index, batch):
 
         embeddings = {}
         x = x0
         for i in range(len(self.k) - 1):
-            x = getattr(self, 'mlp{}'.format(i))(x)
+            x = getattr(self, 'mlp_lin{}'.format(i))(x)
+            x = F.relu(x)
+            x = getattr(self, 'mlp_norm{}'.format(i))(x)
             embeddings['mlp{}'.format(i)] = x
             x = getattr(self, 'conv{}'.format(i))(x, edge_index)
             embeddings['conv{}'.format(i)] = x

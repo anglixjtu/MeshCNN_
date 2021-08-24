@@ -14,4 +14,5 @@ class RetrievalOptions(BaseOptions):
         self.parser.add_argument('--num_aug', type=int, default=1, help='# of augmentation files')
         self.parser.add_argument('--num_neigb', type=int, default=4, help='# of augmentation files')
         self.parser.add_argument('--query_index', type=int, default=0, help='test the results of an example')
+        self.parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
         self.is_train = False

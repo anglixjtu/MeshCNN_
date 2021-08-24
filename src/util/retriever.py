@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch.utils.tensorboard import SummaryWriter
 import json
 import math
+import torch
 
 
 class Retriever:
@@ -15,12 +16,12 @@ class Retriever:
         self.opt = opt
         self.search_methods = opt.search_methods
         self.num_neigb = opt.num_neigb
-        self.database_namefile = opt.train_namelist
-        self.query_namefile = opt.test_namelist
+        self.database_namefile = opt.namelist_file
+        self.query_namefile = opt.namelist_file
         self.database_namelist = self.make_dataset(
-            opt.dataroot, opt.train_namelist, 'test')
+            opt.dataroot, opt.namelist_file, 'test')
         self.query_namelist = self.make_dataset(
-            opt.dataroot, opt.train_namelist, 'test')
+            opt.dataroot, opt.namelist_file, 'test')
         self.dataroot = opt.dataroot
         self.methods = opt.search_methods
         self.which_layer = opt.which_layer
@@ -92,11 +93,13 @@ class Retriever:
         return D, I, dissm
 
     def extract_feature(self, model, data):
+        model.net.eval()
         model.set_input(data)
         out_label, features = model.forward()
         features = features[self.which_layer]
         if self.pooling in self.pooling_set:
-            features = eval(self.pooling)(features, model.data.batch)
+            batch = torch.zeros(len(features))  # only for batch_size 1
+            features = eval(self.pooling)(features, batch.long())
         if self.normalize:
             features = F.normalize(features, p=self.normalize, dim=1)
         self.feature_size = features.shape[1]

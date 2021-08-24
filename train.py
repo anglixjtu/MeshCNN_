@@ -29,6 +29,15 @@ def run_training(opt):
         iter_data_time = time.time()
         epoch_iter = 0
 
+        # test
+        model.net.eval()
+        acc_counter = MetricCounter()
+        for i, data in enumerate(dataloaders['test']):
+            model.set_input(data)
+            accuracy = model.test()
+            acc_counter.update(accuracy, n=1)
+        logger.record_acc(epoch, acc_counter.avg)
+
         # train the network
         model.net.train()
         for i, data in enumerate(dataloaders['train']):

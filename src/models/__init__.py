@@ -2,8 +2,13 @@ import torch
 from os.path import join
 from src.util.util import print_network
 from torch.nn import init
-from .trainer import define_loss, get_scheduler
+from .trainer import get_scheduler
 import torch.nn.functional as F
+from torch.nn import CrossEntropyLoss, MSELoss
+from src.util.losses import ChamferLoss
+from torch_geometric.utils import to_dense_batch
+# from chamferdist import ChamferDistance
+
 
 class Model:
     """ Class for CNN models
@@ -19,6 +24,8 @@ class Model:
         self.gpu_ids = opt.gpu_ids
         if phase == 'train':
             self.is_train = True
+        else:
+            self.is_train = False
         self.device = device
         self.save_dir = join(opt.checkpoints_dir, opt.name)
         self.optimizer = None
@@ -29,11 +36,11 @@ class Model:
         self.loss = None
         self.mode = opt.mode
         self.continue_train = opt.continue_train
+        # TODO: clean continue_train
         self.which_epoch = opt.which_epoch
 
         self.net = self.define_net(opt)
-        self.net.train(self.is_train)
-        self.criterion = define_loss(self.mode).to(self.device)
+        self.criterion = opt.loss  # define_loss(self.mode).to(self.device)
 
         if self.is_train:
             self.optimizer = torch.optim.Adam(self.net.parameters(),
@@ -59,7 +66,7 @@ class Model:
             # set inputs
 
             if not hasattr(data, 'batch'):
-                data.batch = torch.zeros(len(data.x), 1)
+                data.batch = torch.zeros(len(data.x))
                 data.batch = data.batch.long()
             self.data = data.to(self.device)
 
@@ -70,10 +77,19 @@ class Model:
         return out, embeddings
 
     def backward(self, out):
-        if self.mode == 'classification':
-            self.loss = self.criterion(out, self.labels.reshape(-1,))
-        elif self.mode == 'autoencoder':
-            self.loss = self.criterion(out, self.data.x)
+        if self.criterion == 'ce':
+            self.loss = CrossEntropyLoss()(out, self.labels.reshape(-1,))
+        elif self.criterion == 'mse':
+            target, _ = to_dense_batch(self.data.x, self.data.batch)
+            out = out.view(self.data.batch.max()+1, 5, -1)
+            out = out.transpose(2, 1).contiguous()
+            self.loss = MSELoss()(out, target)
+        elif self.criterion == 'chamfer':
+            target, _ = to_dense_batch(self.data.x, self.data.batch)
+            out = out.view(self.data.batch.max()+1, 5, -1)
+            out = out.transpose(2, 1).contiguous()
+            self.loss = ChamferLoss()(out, target)
+            # self.loss = ChamferDistance()(out, target)
         self.loss.backward()
 
     def optimize_parameters(self):
@@ -100,7 +116,11 @@ class Model:
                 label_class = self.labels
                 accuracy = self.get_accuracy(pred_class, label_class)
             elif self.mode == 'autoencoder':
-                accuracy = ((out - self.data.x).abs()).sum() / len(out)
+                target, _ = to_dense_batch(self.data.x, self.data.batch)
+                out = out.view(self.data.batch.max()+1, 5, -1)
+                out = out.transpose(2, 1).contiguous()
+                accuracy = ChamferLoss()(out, target)
+                # accuracy = ChamferDistance()(out, target)
 
         return accuracy
 
@@ -160,8 +180,14 @@ class Model:
         elif opt.arch == 'mesh_ae':
             from .autoencoder_nets import BaseUNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
-            depth = len(pool_ratios)
             net = BaseUNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_ae1d':
+            from .autoencoder_nets import OneDUNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = OneDUNet(in_channels=opt.input_nc,
                            hidden_channels=opt.ncf,
                            pool_ratios=pool_ratios,
                            sum_res=True, act=F.relu)
@@ -169,7 +195,8 @@ class Model:
         else:
             raise NotImplementedError('Encoder model name [%s]'
                                       'is not recognized' % opt.arch)
-        return self.init_net(net, opt.init_type, opt.init_gain, opt.gpu_ids)
+        return self.init_net(net, opt.init_type,
+                             opt.init_gain, opt.gpu_ids)
 
     def init_net(self, net, init_type, init_gain, gpu_ids):
         if len(gpu_ids) > 0:
@@ -182,12 +209,11 @@ class Model:
         return net
 
     @staticmethod
-    def init_weights(net, init_type, init_gain):
+    def init_weights(net, init_type='normal', init_gain=0.02):
+
         def init_func(m):
             classname = m.__class__.__name__
-            if hasattr(m, 'weight') and (classname.find('Conv') != -1 or
-                                         classname.find('Linear') != -1 or
-                                         classname.find('GCNConv') != -1):
+            if hasattr(m, 'weight') and (classname.find('Conv') != -1 or classname.find('Linear') != -1):
                 if init_type == 'normal':
                     init.normal_(m.weight.data, 0.0, init_gain)
                 elif init_type == 'xavier':
@@ -197,10 +223,8 @@ class Model:
                 elif init_type == 'orthogonal':
                     init.orthogonal_(m.weight.data, gain=init_gain)
                 else:
-                    raise NotImplementedError('initialization method [%s] '
-                                              'is not implemented' % init_type)
-            elif (classname.find('BatchNorm2d') != -1 or
-                  classname.find('BatchNorm1d') != -1):
+                    raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
+            elif hasattr(m, 'weight') and (classname.find('BatchNorm') != -1):
                 init.normal_(m.weight.data, 1.0, init_gain)
                 init.constant_(m.bias.data, 0.0)
         net.apply(init_func)

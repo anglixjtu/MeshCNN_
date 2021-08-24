@@ -18,6 +18,7 @@ def compute_features(mesh_tm, opt):
     mesh_data.filename = 'unknown'
     mesh_data.edge_lengths = None
     mesh_data.edge_areas = []
+    mesh_data.pos = None
 
     mesh_out = mesh_tm
     faces = mesh_out.faces
@@ -35,6 +36,7 @@ def compute_features(mesh_tm, opt):
         post_augmentation(mesh_data, opt)
 
     mesh_data.features = extract_features(mesh_data)
+    mesh_data.pos = compute_edge_pos(mesh_data.edges, mesh_data.vs)
 
     return mesh_out, mesh_data
 
@@ -640,3 +642,12 @@ def fixed_division(to_div, epsilon):
     else:
         to_div += epsilon
     return to_div
+
+
+def compute_edge_pos(edges, vertices):
+    pos = np.zeros((len(edges), 3))
+    for i, edge in enumerate(edges):
+        pos_a = vertices[edge[0], :]
+        pos_b = vertices[edge[1], :]
+        pos[i, :] = np.array((pos_a + pos_b) / 2.)
+    return pos

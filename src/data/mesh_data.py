@@ -9,6 +9,7 @@ import numpy as np
 import pickle
 import time
 import json
+from torch_geometric.nn import knn_graph
 
 
 class MeshDataset(Dataset):
@@ -41,7 +42,9 @@ class MeshDataset(Dataset):
         return self.size
 
     def get(self, idx):
+
         path = self.pp_paths[idx]
+
 
         mesh_in = tm.load(path)
 
@@ -50,15 +53,29 @@ class MeshDataset(Dataset):
         start_t = time.time()
         if meshcnn_data.features.shape[1] < self.opt.ninput_edges:
             edge_features = pad(meshcnn_data.features, self.opt.ninput_edges)
+            edge_pos = meshcnn_data.pos
         else:
-            edge_features = meshcnn_data.features
+            edge_features = meshcnn_data.features[:, :self.opt.ninput_edges]
+            edge_pos = meshcnn_data.pos[:self.opt.ninput_edges, :]
         edge_features = (edge_features - self.mean) / self.std
-        edge_connections = self.get_edge_connection(meshcnn_data.gemm_edges)
+
+        if self.opt.knn:
+            edge_pos = torch.tensor(edge_pos,
+                                    dtype=torch.float)
+            batch = torch.zeros(len(edge_pos), dtype=torch.long)
+            edge_connections = knn_graph(edge_pos, k=11,
+                                         batch=batch, loop=False)
+        else:
+            edge_connections = self.get_edge_connect(meshcnn_data.gemm_edges)
+            out = np.min(edge_connections, axis=0)
+            out_i = np.arange(len(out))[out>=self.opt.ninput_edges]
+            if len(out_i) > 0:
+                edge_connections = np.delete(edge_connections, out_i, axis=1)
+            edge_connections = torch.tensor(edge_connections,
+                                        dtype=torch.long)
 
         edge_features = torch.tensor(edge_features.transpose(),
                                      dtype=torch.float)
-        edge_connections = torch.tensor(edge_connections,
-                                        dtype=torch.long)
 
         graph_data = Data(x=edge_features, edge_index=edge_connections)
 
@@ -114,7 +131,7 @@ class MeshDataset(Dataset):
         return paths
 
     @staticmethod
-    def get_edge_connection(gemm_edges):
+    def get_edge_connect(gemm_edges):
         sz = len(gemm_edges)
         edge_indices = np.arange(sz)
         edge_connection = np.zeros((2, 4*sz))
