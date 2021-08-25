@@ -13,73 +13,30 @@ from torch_geometric.nn import knn_graph
 
 
 class MeshDataset(Dataset):
-    def __init__(self, opt, raw_file_names, phase,
-                 transform=None, pre_transform=None):
+    def __init__(self, opt, sets, transform=None, pre_transform=None):
         super(MeshDataset, self).__init__(None, transform, pre_transform)
 
         self.root = opt.dataroot
-        self.raw_file_names = raw_file_names
-        self.processed_file_names = None
+        self.namelist_file = opt.namelist_file
         self.mode = opt.mode
         self.classes, self.class_to_idx = \
-            self.find_classes(self.root, self.namelist_file, self.mode, phase)
-        opt.nclasses = len(self.classes)
-
+            self.find_classes(self.root, self.namelist_file)
+        self.paths = self.find_paths(self.root, self.namelist_file, sets)
+        self.nclasses = len(self.classes)
+        self.size = len(self.paths)
+        self.mean = 0
+        self.std = 1
         self.ninput_channels = None
-
+        opt.nclasses = self.nclasses
+        # for timer
+        self.time = {'preprocess': 0, 'input_feature': 0}
         # for preprocess
+        self.saveroot = './data/processed/'
         self.ninput_edges = opt.ninput_edges
-        
         self.sample_save_mesh()
 
         self.opt = opt
-        self.mean = 0
-        self.std = 1
         # self.get_mean_std(opt)
-
-        # for timer
-        self.time = {'preprocess': 0, 'input_feature': 0}
-
-    @property
-    def raw_file_names(self):
-        return self._raw_file_names
-
-    @raw_file_names.setter
-    def raw_file_names(self, value):
-        self._raw_file_names = value
-
-    @property
-    def processed_file_names(self):
-        return self._processed_file_names
-
-    @processed_file_names.setter
-    def processed_file_names(self, value):
-        self._processed_file_names = []
-        saveroot = './data/processed/'
-
-        for path in self.raw_file_names:
-            split = path.split('/')[-3]
-            target = path.split('/')[-2]
-            obj_name = path.split('/')[-1]
-            save_dir = os.path.join(saveroot, split, target)
-            pp_path = os.path.join(save_dir, obj_name)
-            self._processed_file_names.append(pp_path)
-
-    def process(self):
-        i = 0
-        for raw_path in self.raw_paths:
-            # Read data from `raw_path`.
-            data = Data(...)
-
-            if self.pre_filter is not None and not self.pre_filter(data):
-                continue
-
-            if self.pre_transform is not None:
-                data = self.pre_transform(data)
-
-            torch.save(data, osp.join(self.processed_dir, 'data_{}.pt'.format(i)))
-            i += 1
-
 
     def len(self):
         return self.size
@@ -137,24 +94,43 @@ class MeshDataset(Dataset):
 
     # this is when the folders are organized by class...
     @staticmethod
-    def find_classes(dataroot, namelist_file=None,
-                     mode='classification', phase='train'):
-        if mode == 'classification' and phase in ['train', 'test']:
-            if namelist_file:  # find classes from namelist file
-                with open(namelist_file, 'r') as f:
-                    namelist = json.load(f)
-                dataset = namelist['train']
-                classes = list(dataset.keys())
-            else:  # find directly from directory
-                dir = os.path.join(dataroot, 'train')
-                classes = [d for d in os.listdir(dir)
-                           if os.path.isdir(os.path.join(dir, d))]
-            classes.sort()
-            class_to_idx = {classes[i]: i for i in range(len(classes))}
-            return classes, class_to_idx
-        else:
-            return None, None
+    def find_classes(dataroot, namelist_file=None):
+        if namelist_file:  # find classes from namelist file
+            with open(namelist_file, 'r') as f:
+                namelist = json.load(f)
+            dataset = namelist['train']
+            classes = list(dataset.keys())
+        else:  # find directly from directory
+            dir = os.path.join(dataroot, 'train')
+            classes = [d for d in os.listdir(dir)
+                       if os.path.isdir(os.path.join(dir, d))]
+        classes.sort()
+        class_to_idx = {classes[i]: i for i in range(len(classes))}
+        return classes, class_to_idx
 
+    @staticmethod
+    def find_paths(dataroot, namelist_file=None, sets=['train']):
+        paths = []
+        if namelist_file:  # find from namelist_file
+            with open(namelist_file, 'r') as f:
+                namelist = json.load(f)
+            for set in sets:
+                dataset = namelist[set]
+                classes = list(dataset.keys())
+                for target in classes:
+                    items = [os.path.join(dataroot, x)
+                             for x in dataset[target]]
+                    paths += items
+        else:  # find directly from directory
+            for set in sets:
+                dir = os.path.join(dataroot, set)
+                subdirs = [os.path.join(dir, x) for x in os.listdir(dir)]
+                for subdir in subdirs:
+                    items = [os.path.join(subdir, x)
+                             for x in os.listdir(subdir)]
+                    paths += items
+        # TODO: check the case without classes/subdir
+        return paths
 
     @staticmethod
     def get_edge_connect(gemm_edges):
@@ -229,7 +205,7 @@ class MeshDataset(Dataset):
         nfaces_target = self.ninput_edges / 1.5
         self.pp_paths = []
 
-        for path in self.raw_file_names:
+        for path in self.paths:
             phase = path.split('/')[-3]
             target = path.split('/')[-2]
             obj_name = path.split('/')[-1]
