@@ -106,21 +106,20 @@ class Retriever:
         return out_label.cpu().detach().numpy(),\
             features.cpu().detach().numpy()
 
-    def show_results(self, idx_query, idx_list, dissm=None):
+    def show_results(self, idx_query, idx_list, query_namelist, database_namelist, dissm=None):
 
         font_size = 7
         num_methods = len(self.methods)
         p = pv.Plotter(shape=(num_methods*len(idx_query), self.num_neigb+1),
                        window_size=(500, 100*num_methods*len(idx_query)), border_color='gray')
         for qi, idx in enumerate(idx_query):
-            query_file = self.dataroot + self.query_namelist[idx].strip('\n')
+            query_file = query_namelist[idx].strip('\n')
             mesh_q = pv.read(query_file)
 
             for m, method in enumerate(self.methods):
                 p.subplot(m + qi*num_methods, 0)
                 # p.add_text("{}-query".format(method), font_size=font_size, color='black')
-                filename = self.dataroot + \
-                    self.database_namelist[idx].strip('\n')
+                filename =  database_namelist[idx].strip('\n')
                 label = filename.split('/')[-2]
                 p.add_text("Query-{}".format(label),
                            font_size=font_size, color='black')
@@ -137,8 +136,7 @@ class Retriever:
                         ds = dissm[method][qi]
 
                 for i, index in enumerate(indices):
-                    filename = self.dataroot + \
-                        self.database_namelist[index].strip('\n')
+                    filename = database_namelist[index].strip('\n')
                     label = filename.split('/')[-2]
                     mesh = pv.read(filename)
                     p.subplot(m + qi*num_methods, i+1)
@@ -226,10 +224,10 @@ class Retriever:
 
         return dcg
 
-    def get_labels_from_index(self, indices):
+    def get_labels_from_index(self, indices, paths):
         labels = []
         for index in indices:
-            label = self.database_namelist[index].split('/')[-2]
+            label = paths[index].split('/')[-2]
             labels += [label]
         return labels
 
@@ -242,13 +240,13 @@ class Retriever:
         self.NDCGatN = {m: 0 for m in self.methods}
         self.counter = {m: 0 for m in self.methods}
 
-    def evaluate_results(self, idx_query, idx_list):
+    def evaluate_results(self, idx_query, idx_list, paths_q, paths_database):
         self.reset_metrics()
 
-        labels_query = self.get_labels_from_index(idx_query)
+        labels_query = self.get_labels_from_index(idx_query, paths_q)
         for m, method in enumerate(self.methods):
             for i, gt_label in enumerate(labels_query):
-                labels_list = self.get_labels_from_index(idx_list[method][i])
+                labels_list = self.get_labels_from_index(idx_list[method][i], paths_database)
                 self.PatN[method] += self.get_patk(gt_label,
                                                    labels_list, len(labels_list))
                 self.mAP[method] += self.get_map(gt_label, labels_list)

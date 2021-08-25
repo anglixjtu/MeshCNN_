@@ -2,6 +2,7 @@ from __future__ import print_function
 import torch
 import numpy as np
 import os
+import json
 
 
 def mkdir(path):
@@ -14,6 +15,47 @@ MESH_EXTENSIONS = [
 ]
 
 
+def parse_file_names(dataroot, namelist=None,
+                     namelist_file=None, sets='train'):
+    """Parse paths of data.
+
+    Args:
+        dataroot(str): Root directory for data. If neither 'namelist'
+                      nor 'namelist_file' is defined, find files from
+                      this directory.
+        namelist(list, optional): List of file names. If defined, parse this.
+        namelist_file(str, optional): Path to the .json file which
+                                      stores the namelist. If defined,
+                                      parse this.
+        sets(list, optional): The split ('train', 'test', or others) to load.
+    """
+    paths = []
+    if namelist:  # parse form namelist
+        paths = namelist
+    elif namelist_file:  # find from namelist_file
+        if namelist_file[-5:] == '.json':
+            with open(namelist_file, 'r') as f:
+                namelist = json.load(f)
+
+            for set in sets:
+                dataset = namelist[set]
+                classes = list(dataset.keys())
+                for target in classes:
+                    items = [x for x in dataset[target]]
+                    paths += items
+    else:  # find directly from directory
+        for set in sets:
+            dir = os.path.join(dataroot, set)
+            # subdirs = [os.path.join(dir, x) for x in os.listdir(dir)]
+            for target in os.listdir(dir):
+                subdir = os.path.join(dir, target)
+                items = [os.path.join(set, target, x)
+                         for x in os.listdir(subdir)]
+                paths += items
+    # TODO: check the case without classes/subdir
+    return paths
+
+
 def is_mesh_file(filename):
     return any(filename.endswith(extension) for extension in MESH_EXTENSIONS)
 
@@ -22,7 +64,8 @@ def pad(input_arr, target_length, val=0, dim=1):
     shp = input_arr.shape
     npad = [(0, 0) for _ in range(len(shp))]
     npad[dim] = (0, target_length - shp[dim])
-    return np.pad(input_arr, pad_width=npad, mode='constant', constant_values=val)
+    return np.pad(input_arr, pad_width=npad,
+                  mode='constant', constant_values=val)
 
 
 def seg_accuracy(predicted, ssegs, meshes):
@@ -35,6 +78,7 @@ def seg_accuracy(predicted, ssegs, meshes):
         correct += (correct_vec.float() * edge_areas).sum()
     return correct
 
+
 def print_network(net):
     """Print the total number of parameters in the network
     Parameters:
@@ -46,6 +90,7 @@ def print_network(net):
         num_params += param.numel()
     print('[Network] Total number of parameters : %.3f M' % (num_params / 1e6))
     print('-----------------------------------------------')
+
 
 def get_heatmap_color(value, minimum=0, maximum=1):
     minimum, maximum = float(minimum), float(maximum)

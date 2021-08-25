@@ -184,14 +184,20 @@ class Model:
                            hidden_channels=opt.ncf,
                            pool_ratios=pool_ratios,
                            sum_res=True, act=F.relu)
-        elif opt.arch == 'mesh_ae1d':
-            from .autoencoder_nets import OneDUNet
+        elif opt.arch == 'mesh_aec':
+            from .autoencoder_nets import BaseCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
-            net = OneDUNet(in_channels=opt.input_nc,
+            net = BaseCNet(in_channels=opt.input_nc,
                            hidden_channels=opt.ncf,
                            pool_ratios=pool_ratios,
                            sum_res=True, act=F.relu)
-
+        elif opt.arch == 'mesh_aep':
+            from .autoencoder_nets import PyrmCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = PyrmCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
         else:
             raise NotImplementedError('Encoder model name [%s]'
                                       'is not recognized' % opt.arch)
