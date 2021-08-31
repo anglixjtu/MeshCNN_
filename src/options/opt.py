@@ -34,7 +34,7 @@ class Opt:
         self.serial_batches=False
         self.namelist_file='G:/dataset/MCB_B/MCB_B/namelist/mcbb_5c1000s.json'
         self.which_epoch='latest'
-        self.which_layer='encoder0'
+        self.which_layer='encoder3'
         self.pooling='global_mean_pool'
         self.normalize=2
         self.input_nc = 8
