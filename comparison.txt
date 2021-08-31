@@ -1,0 +1,48 @@
+Using the embeddings from layer [encoder0]. 
+Using pooling                   [global_mean_pool]. 
+Feature length                  [64]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+concatenation: P@N: 0.786, mAP: 0.762, NDCG@N: 0.810, #CH: 64
+slim:          P@N: 0.806, mAP: 0.778, NDCG@N: 0.828, #CH: 32
+slim + pos:    P@N: 0.880, mAP: 0.868, NDCG@N: 0.895, #CH: 32
+pyramid + pos: P@N: 0.866, mAP: 0.858, NDCG@N: 0.889, #CH: 64 
+
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [encoder1]. 
+Using pooling                   [global_mean_pool]. 
+Feature length                  [64]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+concatenation: P@N: 0.776, mAP: 0.747, NDCG@N: 0.801, #CH: 64
+slim:          P@N: 0.786, mAP: 0.758, NDCG@N: 0.813, #CH: 64
+slim + pos:    P@N: 0.810, mAP: 0.789, NDCG@N: 0.836, #CH: 64
+pyramid:       P@N: 0.620, mAP: 0.569, NDCG@N: 0.649, #CH: 64  
+
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [encoder2]. 
+Using pooling                   [global_mean_pool]. 
+Feature length                  [128]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+concatenation: P@N: 0.736, mAP: 0.705, NDCG@N: 0.771, #CH: 128
+slim:          P@N: 0.708, mAP: 0.676, NDCG@N: 0.745, #CH: 64
+slim + pos:    P@N: 0.806, mAP: 0.787, NDCG@N: 0.835, #CH: 64
+pyramid:       P@N: 0.552, mAP: 0.497, NDCG@N: 0.585, #CH: 64 
+
+Maximum retrieve 5 nearest samples with threshold 1.00. 
+Using the embeddings from layer [gb_pool]. 
+Using pooling                   [None]. 
+Feature length                  [256]. 
+Normalize                       [0]. 
+
+Distance metric: IndexFlatL2 
+concatenation: P@N: 0.766, mAP: 0.737, NDCG@N: 0.796, #CH: 256
+slim:          P@N: 0.708, mAP: 0.676, NDCG@N: 0.745, #CH: 128
+slim + pos:    P@N: 0.804, mAP: 0.786, NDCG@N: 0.832, #CH: 128
+pyramid:       P@N: 0.764, mAP: 0.726, NDCG@N: 0.790, #CH: 64 
+
+
