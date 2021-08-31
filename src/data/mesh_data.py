@@ -37,7 +37,7 @@ class MeshDataset(Dataset):
         self.sample_save_mesh()
 
         self.opt = opt
-        # self.get_mean_std(opt)
+        self.get_mean_std(opt)
 
     def len(self):
         return self.size
