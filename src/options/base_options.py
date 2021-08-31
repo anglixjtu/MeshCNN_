@@ -26,6 +26,9 @@ class BaseOptions:
         self.parser.add_argument('--mode', choices={'classification',
                                                     'autoencoder'},
                                  default='classification')
+        self.parser.add_argument('--dataset_mode', choices={'edge',
+                                                            'vertice'},
+                                 default='edge')
         self.parser.add_argument('--ninput_edges',
                                  type=int, default=750,
                                  help='# of input edges')

@@ -2,7 +2,7 @@ import numpy as np
 
 class Opt:
     def __init__(self):
-        self.arch='mesh_ae'
+        self.arch='mesh_aec'
         self.batch_size=16
         self.checkpoints_dir='./checkpoints'
         self.dataroot='G:/dataset/MCB_B/MCB_B/'
@@ -15,7 +15,7 @@ class Opt:
         self.init_type='normal'
         self.is_train=False
         self.max_dataset_size=np.inf
-        self.name='MCBB_ae_knn_chamfer_5'
+        self.name='MCBB_aec_knn_chamfer_5_slim_pos'
         self.ncf=[64, 64, 128, 256, 512]
         self.ninput_edges=750
         self.norm='batch'
@@ -36,14 +36,10 @@ class Opt:
         self.which_epoch='latest'
         self.which_layer='encoder0'
         self.pooling='global_mean_pool'
-        self.normalize=0
-        self.input_nc = 5
+        self.normalize=2
+        self.input_nc = 8
         self.knn = None
         self.continue_train = False
         self.loss = 'ce',
         self.knn = True
-
-        
-
-
-
+        self.dataset_mode = 'edge'

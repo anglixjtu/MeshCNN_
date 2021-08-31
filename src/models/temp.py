@@ -213,7 +213,7 @@ class PyrmCNet(torch.nn.Module):
 
         # construct encoder
         # construct encoder
-        self.encoder0 = ConstractiveLayer(in_channels, 64, 0.8, self.act)
+        self.encoder0 = ConstractiveLayer(5, 64, 0.8, self.act)
         self.encoder1 = ConstractiveLayer(64, 64, 0.6, self.act)
         self.encoder2 = ConstractiveLayer(64, 64, 0.4, self.act)
 

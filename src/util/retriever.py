@@ -106,12 +106,13 @@ class Retriever:
         return out_label.cpu().detach().numpy(),\
             features.cpu().detach().numpy()
 
-    def show_results(self, idx_query, idx_list, query_namelist, database_namelist, dissm=None):
+    def show_results(self, idx_query, idx_list, query_namelist,
+                     database_namelist, dissm=None, window_size=(1000, 2000)):
 
         font_size = 7
         num_methods = len(self.methods)
         p = pv.Plotter(shape=(num_methods*len(idx_query), self.num_neigb+1),
-                       window_size=(500, 100*num_methods*len(idx_query)), border_color='gray')
+                       window_size=window_size, border_color='gray')
         for qi, idx in enumerate(idx_query):
             query_file = query_namelist[idx].strip('\n')
             mesh_q = pv.read(query_file)

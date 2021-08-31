@@ -30,6 +30,7 @@ def compute_features(mesh_tm, opt):
     if opt.num_aug > 1:
         # TODO: check the right augmentations for mechanical data
         faces = augmentation(mesh_data, opt, faces)
+
     build_gemm(mesh_data, faces, face_areas)
 
     if opt.num_aug > 1:

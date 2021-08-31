@@ -10,16 +10,16 @@ import pickle
 import time
 import json
 from torch_geometric.nn import knn_graph
-import random
+from torch_geometric.utils import from_trimesh
+
 
 class MeshDataset(Dataset):
-    def __init__(self, opt, sets, phase='train', transform=None, pre_transform=None):
+    def __init__(self, opt, sets, transform=None, pre_transform=None):
         super(MeshDataset, self).__init__(None, transform, pre_transform)
 
         self.root = opt.dataroot
         self.namelist_file = opt.namelist_file
         self.mode = opt.mode
-        self.phase = phase
         self.classes, self.class_to_idx = \
             self.find_classes(self.root, self.namelist_file)
         self.paths = self.find_paths(self.root, self.namelist_file, sets)
@@ -44,76 +44,17 @@ class MeshDataset(Dataset):
 
     def get(self, idx):
 
-        if self.phase in ['train']:
-            crop_aug = random.random()
-            if crop_aug > 0.5:
-                path = self.paths[idx]
-                mesh_in = tm.load(path)
-                ntarget_faces = int(self.ninput_edges/1.5)
-                n_faces = len(mesh_in.faces)
-                if n_faces > ntarget_faces + 100:
-                    start_f = random.randint(0, n_faces-ntarget_faces-100)
-                    triangle_id = list(range(start_f,
-                                             start_f+ntarget_faces+100))
-                    mesh_in = mesh_in.submesh([triangle_id])
-                    mesh_in = mesh_in[0]
+        path = self.pp_paths[idx]
 
-            else:
-                path = self.pp_paths[idx]
-                mesh_in = tm.load(path)
-        else:
-            path = self.pp_paths[idx]
-            mesh_in = tm.load(path)
+        mesh_in = tm.load(path)
 
-        mesh_out, meshcnn_data = compute_features(mesh_in, self.opt)
-
-        start_t = time.time()
-        if meshcnn_data.features.shape[1] < self.opt.ninput_edges:
-            edge_features = pad(meshcnn_data.features, self.opt.ninput_edges)
-            edge_pos = pad(meshcnn_data.pos, self.opt.ninput_edges, dim=0)
-            edge_len = pad(meshcnn_data.edge_lengths.reshape(-1, 1),
-                           self.opt.ninput_edges, dim=0)
-        else:
-            edge_features = meshcnn_data.features[:, :self.opt.ninput_edges]
-            edge_pos = meshcnn_data.pos[:self.opt.ninput_edges, :]
-            edge_len = meshcnn_data.edge_lengths.reshape(-1, 1)[:self.opt.ninput_edges, :]
-
-        # edge_features = self.normalize_max_min(edge_features)
-
-        if self.opt.knn:
-            edge_pos = torch.tensor(edge_pos,
-                                    dtype=torch.float)
-            batch = torch.zeros(len(edge_pos), dtype=torch.long)
-            edge_connections = knn_graph(edge_pos, k=11,
-                                         batch=batch, loop=False)
-        else:
-            edge_connections = self.get_edge_connect(meshcnn_data.gemm_edges)
-            out = np.min(edge_connections, axis=0)
-            out_i = np.arange(len(out))[out>=self.opt.ninput_edges]
-            if len(out_i) > 0:
-                edge_connections = np.delete(edge_connections, out_i, axis=1)
-            edge_connections = torch.tensor(edge_connections,
-                                        dtype=torch.long)
-
-        edge_features = torch.tensor(edge_features.transpose(),
-                                     dtype=torch.float)
-
-        graph_data = Data(x=edge_features, edge_index=edge_connections,
-                          pos=edge_pos)
-
-        if self.mode == 'autoencoder':
-            graph_data = self.transform(graph_data)
-        # TODO: is the transformation necessary
-
-        if self.ninput_channels == 8:
-            graph_data.x = torch.cat((graph_data.x, graph_data.pos), 1)
+        graph_data = from_trimesh(mesh_in)
+        graph_data = self.transform(graph_data)
+        graph_data.x = graph_data.pos.clone()
 
         mean = torch.tensor(self.mean).reshape(1, -1)
         std = torch.tensor(self.std).reshape(1, -1)
         graph_data.x = (graph_data.x - mean) / std
-
-        end_t = time.time()
-        self.time['input_feature'] += end_t - start_t
 
         if self.mode == 'classification':
             label = self.paths[idx].split('/')[-2]
@@ -203,6 +144,7 @@ class MeshDataset(Dataset):
                     features = data[0].x
                 elif self.opt.mode == 'autoencoder':
                     features = data.x
+
                 features = features.numpy()
                 mean = mean + features.mean(axis=0)
                 std = std + features.std(axis=0)

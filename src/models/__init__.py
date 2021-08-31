@@ -5,9 +5,9 @@ from torch.nn import init
 from .trainer import get_scheduler
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, MSELoss
-from src.util.losses import ChamferLoss
+from src.util.losses import sample_surface
 from torch_geometric.utils import to_dense_batch
-# from chamferdist import ChamferDistance
+# from tests.test_tools import show_pt_plt
 
 
 class Model:
@@ -38,6 +38,14 @@ class Model:
         self.continue_train = opt.continue_train
         # TODO: clean continue_train
         self.which_epoch = opt.which_epoch
+        self.input_nc = opt.input_nc
+        try:
+            from chamferdist import ChamferDistance
+            self.chamfer_loss = ChamferDistance()
+        except ImportError as error:
+            print('ChamferDist not installed, using ChamferLoss')
+            from src.util.losses import ChamferLoss
+            self.chamfer_loss = ChamferLoss()
 
         self.net = self.define_net(opt)
         self.criterion = opt.loss  # define_loss(self.mode).to(self.device)
@@ -77,19 +85,34 @@ class Model:
         return out, embeddings
 
     def backward(self, out):
-        if self.criterion == 'ce':
-            self.loss = CrossEntropyLoss()(out, self.labels.reshape(-1,))
-        elif self.criterion == 'mse':
+        if self.opt.dataset_mode == 'edge':
+            if self.criterion == 'ce':
+                self.loss = CrossEntropyLoss()(out, self.labels.reshape(-1,))
+            elif self.criterion == 'mse':
+                target, _ = to_dense_batch(self.data.x, self.data.batch)
+                out = out.view(self.data.batch.max()+1, self.input_nc, -1)
+                out = out.transpose(2, 1).contiguous()
+                self.loss = MSELoss()(out, target)
+            elif self.criterion == 'chamfer':
+                target, _ = to_dense_batch(self.data.x, self.data.batch)
+                out = out.view(self.data.batch.max()+1, self.input_nc, -1)
+                out = out.transpose(2, 1).contiguous()
+                self.loss = self.chamfer_loss(out, target)
+        elif self.opt.dataset_mode == 'vertice':
             target, _ = to_dense_batch(self.data.x, self.data.batch)
-            out = out.view(self.data.batch.max()+1, 5, -1)
-            out = out.transpose(2, 1).contiguous()
-            self.loss = MSELoss()(out, target)
-        elif self.criterion == 'chamfer':
-            target, _ = to_dense_batch(self.data.x, self.data.batch)
-            out = out.view(self.data.batch.max()+1, 5, -1)
-            out = out.transpose(2, 1).contiguous()
-            self.loss = ChamferLoss()(out, target)
-            # self.loss = ChamferDistance()(out, target)
+            out, _ = to_dense_batch(out, self.data.batch)
+            # out = out.view(self.data.batch.max()+1, self.input_nc, -1)
+            # out = out.transpose(2, 1).contiguous()
+            self.loss = self.chamfer_loss(out, target)
+            # sample loss
+            '''face = torch.transpose(self.data.face, 0, 1)
+            recon_xyz, recon_normals = sample_surface(face, out, 2500)
+            input_xyz, input_normals = sample_surface(face, target, 2500)
+            # show_pt_plt(input_xyz[0, :, :].detach().numpy(),
+            #             recon_xyz[0, :, :].detach().numpy())
+            self.loss = ChamferLoss()(recon_xyz, input_xyz)
+            # self.loss = ChamferDistance()(recon_xyz, input_xyz)'''
+
         self.loss.backward()
 
     def optimize_parameters(self):
@@ -111,17 +134,28 @@ class Model:
         with torch.no_grad():
             out, _ = self.forward()
             # compute number of correct
-            if self.mode == 'classification':
-                pred_class = out.data.max(1)[1]
-                label_class = self.labels
-                accuracy = self.get_accuracy(pred_class, label_class)
-            elif self.mode == 'autoencoder':
+            if self.opt.dataset_mode == 'edge':
+                if self.mode == 'classification':
+                    pred_class = out.data.max(1)[1]
+                    label_class = self.labels
+                    accuracy = self.get_accuracy(pred_class, label_class)
+                elif self.mode == 'autoencoder':
+                    target, _ = to_dense_batch(self.data.x, self.data.batch)
+                    out = out.view(self.data.batch.max()+1, self.input_nc, -1)
+                    out = out.transpose(2, 1).contiguous()
+                    accuracy = self.chamfer_loss(out, target)
+            elif self.opt.dataset_mode == 'vertice':
                 target, _ = to_dense_batch(self.data.x, self.data.batch)
-                out = out.view(self.data.batch.max()+1, 5, -1)
+                out = out.view(self.data.batch.max()+1, self.input_nc, -1)
                 out = out.transpose(2, 1).contiguous()
-                accuracy = ChamferLoss()(out, target)
-                # accuracy = ChamferDistance()(out, target)
-
+  
+                face = torch.transpose(self.data.face, 0, 1)
+                recon_xyz, recon_normals = sample_surface(face, out, 2500)
+                input_xyz, input_normals = sample_surface(face, target, 2500)
+                # show_pt_plt(input_xyz[0, :, :].detach().numpy(),
+                #             recon_xyz[0, :, :].detach().numpy())
+                accuracy = self.chamfer_loss(recon_xyz, input_xyz)
+ 
         return accuracy
 
     def get_accuracy(self, pred, labels):
@@ -184,8 +218,15 @@ class Model:
                            hidden_channels=opt.ncf,
                            pool_ratios=pool_ratios,
                            sum_res=True, act=F.relu)
-        elif opt.arch == 'mesh_aec':
+        elif opt.arch == 'mesh_aec' and opt.norm == 'batch':
             from .autoencoder_nets import BaseCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = BaseCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_aec' and opt.norm == 'None':
+            from .nonorm_ae_nets import BaseCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
             net = BaseCNet(in_channels=opt.input_nc,
                            hidden_channels=opt.ncf,
@@ -195,6 +236,13 @@ class Model:
             from .autoencoder_nets import PyrmCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
             net = PyrmCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_aepc':
+            from .autoencoder_nets import PyrmPCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = PyrmPCNet(in_channels=opt.input_nc,
                            hidden_channels=opt.ncf,
                            pool_ratios=pool_ratios,
                            sum_res=True, act=F.relu)
