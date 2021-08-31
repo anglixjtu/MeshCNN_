@@ -218,6 +218,13 @@ class Model:
                            hidden_channels=opt.ncf,
                            pool_ratios=pool_ratios,
                            sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_aes':
+            from .autoencoder_nets import ShallowCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = ShallowCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
         elif opt.arch == 'mesh_aec' and opt.norm == 'batch':
             from .autoencoder_nets import BaseCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
