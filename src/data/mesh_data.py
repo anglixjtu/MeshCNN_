@@ -13,13 +13,13 @@ from torch_geometric.nn import knn_graph
 
 
 class MeshDataset(Dataset):
-    def __init__(self, opt, raw_file_names, phase,
+    def __init__(self, root, opt, file_names, phase,
                  transform=None, pre_transform=None):
-        super(MeshDataset, self).__init__(None, transform, pre_transform)
+        super(MeshDataset, self).__init__(root, transform, pre_transform)
 
         self.root = opt.dataroot
-        self.raw_file_names = raw_file_names
-        self.processed_file_names = None
+        self.raw_file_names = file_names
+        self.processed_file_names = file_names
         self.mode = opt.mode
         self.classes, self.class_to_idx = \
             self.find_classes(self.root, self.namelist_file, self.mode, phase)
@@ -54,16 +54,8 @@ class MeshDataset(Dataset):
 
     @processed_file_names.setter
     def processed_file_names(self, value):
-        self._processed_file_names = []
-        saveroot = './data/processed/'
+        self._processed_file_names = ['processed/' + i for i in value]
 
-        for path in self.raw_file_names:
-            split = path.split('/')[-3]
-            target = path.split('/')[-2]
-            obj_name = path.split('/')[-1]
-            save_dir = os.path.join(saveroot, split, target)
-            pp_path = os.path.join(save_dir, obj_name)
-            self._processed_file_names.append(pp_path)
 
     def process(self):
         i = 0

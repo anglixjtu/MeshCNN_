@@ -31,7 +31,7 @@ def create_dataloader(opt, phase, namelist=None):
     else:
         raise NotImplementedError('phase [%s] is not implemented' % phase)
 
-    dataset = MeshDataset(opt, raw_file_names, phase)
+    dataset = MeshDataset(opt.dataroot, opt, raw_file_names, phase)
     dataloader = DataLoader(dataset, batch_size=batch_size,
                             shuffle=shuffle,
                             num_workers=num_workers)
