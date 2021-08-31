@@ -27,9 +27,9 @@ def run_retrieve():
 
     query_idx = []
     for name in query_namelist:
-        query_idx += [retriever.database_namelist.index(name)]
+        query_idx += [database.paths.index(opt.dataroot + name)]
 
-    query_set = dataset[query_idx]
+    query_set = database[query_idx]
     fea_q = fea_db[query_idx, :]'''
 
     fea_q = retriever.extract_database_features(model, query_set)
@@ -42,8 +42,16 @@ def run_retrieve():
     # retriever.show_embedding(fea_db, idx_query)
 
     retriever.evaluate_results(idx_query,  ranked_list, query_set.paths, database.paths)
-
-    # retriever.show_results(query_idx, ranked_list, dissm)
+    '''ranked_list1, dissm1 = {}, {}
+    ranked_list2, dissm2 = {}, {}
+    ranked_list1['IndexFlatL2'] = ranked_list['IndexFlatL2'][:5, 1:].copy()
+    dissm1['IndexFlatL2'] = dissm['IndexFlatL2'][:5, 1:].copy()
+    retriever.show_results(query_idx[:5], ranked_list1, database.paths,
+                           database.paths, dissm1, (1000, 1200))
+    ranked_list2['IndexFlatL2'] = ranked_list['IndexFlatL2'][5:, 1:].copy()
+    dissm2['IndexFlatL2'] = dissm['IndexFlatL2'][5:, 1:].copy()
+    retriever.show_results(query_idx[5:], ranked_list2, database.paths,
+                           database.paths, dissm2, (1000, 1200))'''
 
     debug = 295
 
