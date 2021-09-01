@@ -13,13 +13,14 @@ from torch_geometric.nn import knn_graph
 
 
 class MeshDataset(Dataset):
-    def __init__(self, root, opt, file_names, phase,
+    def __init__(self, opt, file_names, phase,
                  transform=None, pre_transform=None):
-        super(MeshDataset, self).__init__(root, transform, pre_transform)
 
-        self.root = opt.dataroot
         self.raw_file_names = file_names
         self.processed_file_names = file_names
+
+        super(MeshDataset, self).__init__(opt.dataroot, transform, pre_transform)
+        # 
         self.mode = opt.mode
         self.classes, self.class_to_idx = \
             self.find_classes(self.root, self.namelist_file, self.mode, phase)
@@ -58,23 +59,7 @@ class MeshDataset(Dataset):
 
 
     def process(self):
-        i = 0
-        for raw_path in self.raw_paths:
-            # Read data from `raw_path`.
-            data = Data(...)
-
-            if self.pre_filter is not None and not self.pre_filter(data):
-                continue
-
-            if self.pre_transform is not None:
-                data = self.pre_transform(data)
-
-            torch.save(data, osp.join(self.processed_dir, 'data_{}.pt'.format(i)))
-            i += 1
-
-
-    def len(self):
-        return self.size
+        return 0
 
     def get(self, idx):
 
