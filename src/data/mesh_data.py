@@ -19,7 +19,10 @@ class MeshDataset(Dataset):
         self.raw_file_names = file_names
         self.processed_file_names = file_names
 
-        super(MeshDataset, self).__init__(opt.dataroot, transform, pre_transform)
+        super(MeshDataset, self).__init__(opt.dataroot,
+                                          transform,
+                                          pre_transform)
+        self.processed_dir = './data/processed/'
         # 
         self.mode = opt.mode
         self.classes, self.class_to_idx = \
@@ -30,8 +33,6 @@ class MeshDataset(Dataset):
 
         # for preprocess
         self.ninput_edges = opt.ninput_edges
-        
-        self.sample_save_mesh()
 
         self.opt = opt
         self.mean = 0
@@ -55,11 +56,26 @@ class MeshDataset(Dataset):
 
     @processed_file_names.setter
     def processed_file_names(self, value):
-        self._processed_file_names = ['processed/' + i for i in value]
-
+        self._processed_file_names = value
 
     def process(self):
-        return 0
+        self.pp_paths = []
+        for i, raw_file_name in enumerate(self.raw_file_names):
+            save_dir = os.path.join(self.processed_dir,
+                                    self.processed_file_names[i])
+            self.pp_paths.append(save_dir)
+
+            if not os.path.exists(save_dir):
+                raw_path = os.path.join(self.root, raw_file_name)
+                mesh = tm.load(raw_path)
+
+                if self.pre_transform is not None:
+                    mesh = self.pre_transform(mesh)
+
+                if not os.path.exists(os.path.split(save_dir)[0]):
+                    os.makedirs(save_dir)
+                mesh.export(save_dir)
+        # TODO: do not save processed files in memory
 
     def get(self, idx):
 
@@ -202,29 +218,3 @@ class MeshDataset(Dataset):
         edge_features_out[4, :] = edge_features[4, :] / max_ratios[1]
         return edge_features_out
 
-    def sample_save_mesh(self):
-        nfaces_target = self.ninput_edges / 1.5
-        self.pp_paths = []
-
-        for path in self.raw_file_names:
-            phase = path.split('/')[-3]
-            target = path.split('/')[-2]
-            obj_name = path.split('/')[-1]
-            mesh_in = tm.load(path)
-            nfaces = len(mesh_in.faces)
-            mesh_out = mesh_in
-            save_dir = os.path.join(self.saveroot, phase, target)
-            pp_path = os.path.join(save_dir, obj_name)
-            self.pp_paths.append(pp_path)
-            if not os.path.exists(pp_path):
-                # upsample
-                if nfaces < nfaces_target:
-                    nsub = max(1, round((nfaces_target/nfaces)**0.25))
-                    for i in range(nsub):
-                        mesh_out = mesh_out.subdivide()
-                # downsample
-                mesh_out = mesh_out.simplify_quadratic_decimation(nfaces_target)
-
-                if not os.path.exists(save_dir):
-                    os.makedirs(save_dir)
-                mesh_out.export(pp_path)

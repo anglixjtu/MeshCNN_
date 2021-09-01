@@ -29,9 +29,10 @@ class BaseOptions:
         self.parser.add_argument('--ninput_edges',
                                  type=int, default=750,
                                  help='# of input edges')
-        self.parser.add_argument('--knn',
-                                 action='store_true',
-                                 help='use knn to compute neighbors')
+        self.parser.add_argument('--knn', type=int,
+                                 default=11,
+                                 help='if >0, use knn to compute neighbors,'
+                                      'else use 1-ring neighbors')
         self.parser.add_argument('--loss',
                                  type=str,
                                  default='ce',
