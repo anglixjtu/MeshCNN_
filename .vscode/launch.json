@@ -151,7 +151,7 @@
                 "--input_nc",
                 "5",
                 "--knn",
-                "True"
+                "11"
                 //"--which_epoch",
                 //"20",
                 //"--epoch_count",
