@@ -56,6 +56,21 @@ def parse_file_names(dataroot, namelist=None,
     return paths
 
 
+def find_classes(dataroot, namelist_file=None):
+    if namelist_file:  # find classes from namelist file
+        with open(namelist_file, 'r') as f:
+            namelist = json.load(f)
+        dataset = namelist['train']
+        classes = list(dataset.keys())
+    else:  # find directly from directory
+        dir = os.path.join(dataroot, 'train')
+        classes = [d for d in os.listdir(dir)
+                   if os.path.isdir(os.path.join(dir, d))]
+    classes.sort()
+    class_to_idx = {classes[i]: i for i in range(len(classes))}
+    return classes, class_to_idx
+
+
 def is_mesh_file(filename):
     return any(filename.endswith(extension) for extension in MESH_EXTENSIONS)
 
