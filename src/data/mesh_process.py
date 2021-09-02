@@ -2,6 +2,24 @@ import numpy as np
 import time
 
 
+def init_mesh_data():
+    class MeshPrep:
+        def __getitem__(self, item):
+            return eval('self.' + item)
+
+    mesh_data = MeshPrep()
+    mesh_data.vs = mesh_data.edges = None
+    mesh_data.gemm_edges = mesh_data.sides = None
+    mesh_data.edges_count = None
+    mesh_data.ve = None
+    mesh_data.v_mask = None
+    mesh_data.filename = 'unknown'
+    mesh_data.edge_lengths = None
+    mesh_data.edge_areas = []
+    mesh_data.pos = None
+    return mesh_data
+
+
 def compute_features(mesh_tm, opt):
     """compute 5-channel input feature from mesh"""
 
@@ -129,6 +147,20 @@ def sample_and_compute_features(mesh_tm, opt):
     opt.t_ef += end_t - start_t
 
     return mesh_out, mesh_data
+
+
+def get_edge_connection(gemm_edges):
+    sz = len(gemm_edges)
+    edge_indices = np.arange(sz)
+    edge_connection = np.zeros((2, 4*sz))
+    for i in range(gemm_edges.shape[1]):
+        edge_connection[0, i*sz:(i+1)*sz] = edge_indices
+        edge_connection[1, i*sz:(i+1)*sz] = gemm_edges[:, i]
+    valid = np.min(edge_connection, axis=0)
+    valid = np.tile([valid > -1], (2, 1))
+    edge_connection = edge_connection[valid].reshape(2, -1)
+
+    return edge_connection
 
 
 # Preprocess methods by Ang Li
@@ -315,17 +347,19 @@ def compute_face_areas(mesh, faces):
 
 
 # Data augmentation methods
-def augmentation(mesh, opt, faces=None):
-    if hasattr(opt, 'scale_verts') and opt.scale_verts:
+def augmentation(mesh, faces=None,
+                scale_verts_f=False,
+                flip_edges_f=0.2):
+    if scale_verts_f:
         scale_verts(mesh)
-    if hasattr(opt, 'flip_edges') and opt.flip_edges:
-        faces = flip_edges(mesh, opt.flip_edges, faces)
+    if flip_edges_f > -1:
+        faces = flip_edges(mesh, flip_edges_f, faces)
     return faces
 
 
-def post_augmentation(mesh, opt):
-    if hasattr(opt, 'slide_verts') and opt.slide_verts:
-        slide_verts(mesh, opt.slide_verts)
+def post_augmentation(mesh, slide_verts_f=0.2):
+    if slide_verts_f > -1:
+        slide_verts(mesh, slide_verts_f)
 
 
 def slide_verts(mesh, prct):
