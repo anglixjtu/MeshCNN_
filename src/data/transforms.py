@@ -157,3 +157,18 @@ class NormalizeFeature(object):
 
     def __repr__(self):
         return '{}()'.format(self.__class__.__name__)
+
+
+class CatPos(object):
+    """ Concatenate position vectors to features."""
+
+    def __init__(self, input_nc):
+        self.input_nc = input_nc
+
+    def __call__(self, data):
+        if self.input_nc > 5:
+            data.x = torch.cat((data.x, data.pos), 1)
+        return data
+
+    def __repr__(self):
+        return '{}()'.format(self.__class__.__name__)

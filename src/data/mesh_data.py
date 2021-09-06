@@ -77,4 +77,3 @@ class MeshDataset(Dataset):
             return graph_data, label
         else:
             return graph_data
-

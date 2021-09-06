@@ -2,7 +2,8 @@ from torch_geometric.data import DataLoader
 from src.util.util import parse_file_names, find_classes
 from .transforms import (SampleMesh,
                          ConstructEdgeGraph,
-                         NormalizeFeature)
+                         NormalizeFeature,
+                         CatPos)
 from torch_geometric.transforms import (NormalizeScale,
                                         NormalizeRotation,
                                         Compose)
@@ -18,16 +19,20 @@ def create_dataloader(opt, phase, namelist=None):
     namelist_file = opt.namelist_file
     root = opt.dataroot
     pre_transform = SampleMesh(opt.ninput_edges / 1.5)
+    input_nc = opt.input_nc
 
     # compute mean and std (augmentation closed by setting num_aug=1)
-    graph_transformer = ConstructEdgeGraph(ninput_edges=opt.ninput_edges,
-                                           num_aug=1,
-                                           neigbs=opt.neigbs,
-                                           len_feature=opt.len_feature)
+    transformer = [ConstructEdgeGraph(ninput_edges=opt.ninput_edges,
+                                      num_aug=1,
+                                      neigbs=opt.neigbs,
+                                      len_feature=opt.len_feature),
+                   NormalizeScale(),
+                   NormalizeRotation(),
+                   CatPos(input_nc)]
     raw_file_names = parse_file_names(root, namelist,
                                       namelist_file, ['train'])
     dataset = MeshDataset(root, raw_file_names, None,
-                          transform=graph_transformer,
+                          transform=Compose(transformer),
                           pre_transform=pre_transform)
     mean, std, ninput_channels = compute_mean_std(opt.name, dataset)
 
@@ -41,6 +46,7 @@ def create_dataloader(opt, phase, namelist=None):
                                             len_feature=opt.len_feature)]
     general_transformer = [NormalizeScale(),
                            NormalizeRotation(),
+                           CatPos(input_nc),
                            NormalizeFeature(mean, std, ninput_channels)]
     transform = Compose(graph_transformer + general_transformer)
     if phase in ['train']:
