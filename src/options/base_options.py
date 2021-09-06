@@ -38,6 +38,11 @@ class BaseOptions:
                                  default='ce',
                                  choices={'ce', 'mse', 'chamfer'},
                                  help='loss function for training')
+        self.parser.add_argument('--dataset_mode',
+                                 type=str,
+                                 default='edge',
+                                 choices={'edge', 'vertice'},
+                                 help='loss function for training')
         self.parser.add_argument('--max_dataset_size', type=int, default=float("inf"), help='Maximum number of samples per epoch')
         self.parser.add_argument('--len_feature', action='store_true',
                                  help='will not use edge length as features')
