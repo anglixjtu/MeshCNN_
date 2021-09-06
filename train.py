@@ -16,11 +16,7 @@ def run_training(opt):
         dataloaders[phase], dataset[phase] = create_dataloader(opt, phase)
         logger.record_dataset(len(dataset[phase]), opt.mode, phase)
 
-    device = torch.device('cuda:{}'.format(opt.gpu_ids[0]))\
-        if (opt.gpu_ids and torch.cuda.is_available())\
-        else torch.device('cpu')
-
-    model = Model(opt, device, phase='train')
+    model = Model(opt, phase='train')
 
     total_steps = 0
 
