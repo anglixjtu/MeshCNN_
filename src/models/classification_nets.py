@@ -1,10 +1,8 @@
-import torch
 import torch.nn as nn
-from torch.nn import init
 import torch.nn.functional as F
-from torch.nn import Sequential as Seq, Linear as Lin, ReLU, BatchNorm1d as BN
+from torch.nn import Linear as Lin, BatchNorm1d as BN
 from torch_geometric.nn import GCNConv, BatchNorm
-from torch_geometric.nn import TopKPooling, SAGPooling,  global_mean_pool
+from torch_geometric.nn import SAGPooling,  global_mean_pool
 
 
 class MeshClsNet(nn.Module):

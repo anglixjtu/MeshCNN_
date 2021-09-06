@@ -150,7 +150,7 @@ class BaseCNet(torch.nn.Module):
 
         # construct encoder
         # construct encoder
-        self.encoder0 = EncoderLayer(5, 32, self.act)
+        self.encoder0 = EncoderLayer(in_channels, 32, self.act)
         self.encoder1 = EncoderLayer(32, 64, self.act)
         self.encoder2 = EncoderLayer(64, 64, self.act)
 
@@ -159,7 +159,7 @@ class BaseCNet(torch.nn.Module):
         # construct decoder
         # self.decoder2 = DecoderLayer(128, 512, self.act)
         self.decoder1 = DecoderLayer(128, 512, self.act)
-        self.decoder0 = DecoderLayer(512, 750 * 5, None)
+        self.decoder0 = DecoderLayer(512, 750 * in_channels, None)
 
     def forward(self, x, edge_index, batch=None):
 
