@@ -17,11 +17,11 @@ class BaseModel:
         self.save_dir = join(opt.checkpoints_dir, opt.name)
         self.gpu_ids = opt.gpu_ids
         self.loss_name = opt.loss
-        self.continue_train = opt.continue_train
         self.which_epoch = opt.which_epoch
 
         if phase == 'train':
             self.is_train = True
+            self.continue_train = opt.continue_train
         else:
             self.is_train = False
 

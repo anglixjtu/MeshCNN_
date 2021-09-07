@@ -21,9 +21,11 @@ class Model(BaseModel):
         self.opt = opt
         self.mode = opt.mode
         self.input_nc = opt.input_nc
+        self.phase = phase
 
     def set_input(self, data):
-        if self.mode == 'classification':
+        if self.mode == 'classification' and\
+           self.phase in ['train', 'test']:
             labels = data[1]
             data = data[0]
             if not hasattr(data, 'batch'):
@@ -31,7 +33,7 @@ class Model(BaseModel):
                 data.batch = data.batch.long()
             self.data = data.to(self.device)
             self.labels = labels.long().to(self.device)
-        elif self.mode == 'autoencoder':
+        else:
             if not hasattr(data, 'batch'):
                 data.batch = torch.zeros(len(data.x))
                 data.batch = data.batch.long()
