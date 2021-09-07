@@ -24,10 +24,10 @@ class Model(BaseModel):
         self.phase = phase
 
     def set_input(self, data):
+        data = data[0]
         if self.mode == 'classification' and\
            self.phase in ['train', 'test']:
             labels = data[1]
-            data = data[0]
             if not hasattr(data, 'batch'):
                 data.batch = torch.zeros(len(data.x), 1)
                 data.batch = data.batch.long()
