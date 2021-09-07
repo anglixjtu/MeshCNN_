@@ -42,9 +42,8 @@ def create_dataloader(opt, phase, namelist=None):
         raw_file_names = parse_file_names(root, namelist,
                                           namelist_file, opt.set)
         shuffle = False
-        batch_size = 1
-        num_workers = 1
-        # TODO: batch this phase
+        batch_size = opt.batch_size
+        num_workers = int(opt.num_threads)
     else:
         raise NotImplementedError('phase [%s] is not implemented' % phase)
 
@@ -82,7 +81,7 @@ def compute_mean_std(name, dataset):
         for i, data in enumerate(dataset):
             if i % 500 == 0:
                 print('{} of {}'.format(i, len(dataset)))
-            features = data.x
+            features = data[0].x
             features = features.numpy()
             mean = mean + features.mean(axis=0)
             std = std + features.std(axis=0)

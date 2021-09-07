@@ -41,14 +41,16 @@ class MeshDataset(Dataset):
         self._processed_file_names = value
 
     def process(self):
-        self.pp_paths = []
+        self.pp_paths, self.raw_file_paths = [], []
         for i, raw_file_name in enumerate(self.raw_file_names):
             save_dir = os.path.join('./data/processed/',
                                     self.processed_file_names[i])
+            raw_path = os.path.join(self.root, raw_file_name)
             self.pp_paths.append(save_dir)
+            self.raw_file_paths.append(raw_path)
 
             if not os.path.exists(save_dir):
-                raw_path = os.path.join(self.root, raw_file_name)
+
                 mesh = tm.load(raw_path)
 
                 if self.pre_transform is not None:
@@ -74,6 +76,6 @@ class MeshDataset(Dataset):
             label = self.raw_file_names[idx].split('/')[-2]
             label = self.class_to_idx[label]
             label = torch.Tensor(np.array([label]))
-            return graph_data, label
+            return graph_data, label, idx
         else:
-            return graph_data
+            return graph_data, idx
