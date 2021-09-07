@@ -47,6 +47,10 @@ class BaseOptions:
         self.parser.add_argument('--len_feature', action='store_true',
                                  help='will not use edge length as features')
         # network params
+        self.parser.add_argument('--which_epoch',
+                                 type=str,
+                                 default='latest',
+                                 help='which epoch to load trained model')
         self.parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
         self.parser.add_argument('--arch', type=str, default='mconvnet', help='selects network to use') #todo add choices
         self.parser.add_argument('--resblocks', type=int, default=0, help='# of res blocks')
@@ -89,8 +93,6 @@ class BaseOptions:
         if len(self.opt.gpu_ids) > 0:
             torch.cuda.set_device(self.opt.gpu_ids[0])
 
-        args = vars(self.opt)
-
         if self.opt.seed is not None:
             import numpy as np
             import random
@@ -99,23 +101,13 @@ class BaseOptions:
             random.seed(self.opt.seed)
 
         if self.opt.export_folder:
-            self.opt.export_folder = os.path.join(self.opt.checkpoints_dir, self.opt.name, self.opt.export_folder)
+            self.opt.export_folder = os.path.join(
+                self.opt.checkpoints_dir,
+                self.opt.name, self.opt.export_folder)
             util.mkdir(self.opt.export_folder)
 
-        if self.is_train:
-            print('------------ Options -------------')
-            for k, v in sorted(args.items()):
-                print('%s: %s' % (str(k), str(v)))
-            print('-------------- End ----------------')
+        # save to the disk
+        expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
+        util.mkdir(expr_dir)
 
-            # save to the disk
-            expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
-            util.mkdir(expr_dir)
-
-            file_name = os.path.join(expr_dir, 'opt.txt')
-            with open(file_name, 'wt') as opt_file:
-                opt_file.write('------------ Options -------------\n')
-                for k, v in sorted(args.items()):
-                    opt_file.write('%s: %s\n' % (str(k), str(v)))
-                opt_file.write('-------------- End ----------------\n')
         return self.opt
