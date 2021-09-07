@@ -1,12 +1,7 @@
 from torch_geometric.data import DataLoader
 from src.util.util import parse_file_names, find_classes
-from .transforms import (SampleMesh,
-                         ConstructEdgeGraph,
-                         NormalizeFeature,
-                         CatPos)
-from torch_geometric.transforms import (NormalizeScale,
-                                        NormalizeRotation,
-                                        Compose)
+from .transforms import (SampleMesh)
+from .transform_recipes import set_transforms
 import os
 import numpy as np
 import pickle
@@ -19,36 +14,18 @@ def create_dataloader(opt, phase, namelist=None):
     namelist_file = opt.namelist_file
     root = opt.dataroot
     pre_transform = SampleMesh(opt.ninput_edges / 1.5)
-    input_nc = opt.input_nc
 
     # compute mean and std (augmentation closed by setting num_aug=1)
-    transformer = [ConstructEdgeGraph(ninput_edges=opt.ninput_edges,
-                                      num_aug=1,
-                                      neigbs=opt.neigbs,
-                                      len_feature=opt.len_feature),
-                   NormalizeScale(),
-                   NormalizeRotation(),
-                   CatPos(input_nc)]
+    transform = set_transforms('compute_mean_std', opt)
     raw_file_names = parse_file_names(root, namelist,
                                       namelist_file, ['train'])
     dataset = MeshDataset(root, raw_file_names, None,
-                          transform=Compose(transformer),
+                          transform=transform,
                           pre_transform=pre_transform)
     mean, std, ninput_channels = compute_mean_std(opt.name, dataset)
 
     # define dataset and dataloader
-    graph_transformer = [ConstructEdgeGraph(ninput_edges=opt.ninput_edges,
-                                            num_aug=opt.num_aug,
-                                            neigbs=opt.neigbs,
-                                            scale_verts=opt.scale_verts,
-                                            flip_edges=opt.flip_edges,
-                                            slide_verts=opt.slide_verts,
-                                            len_feature=opt.len_feature)]
-    general_transformer = [NormalizeScale(),
-                           NormalizeRotation(),
-                           CatPos(input_nc),
-                           NormalizeFeature(mean, std, ninput_channels)]
-    transform = Compose(graph_transformer + general_transformer)
+    transform = set_transforms(phase, opt, mean, std, ninput_channels)
     if phase in ['train']:
         raw_file_names = parse_file_names(root, namelist,
                                           namelist_file, ['train'])
@@ -63,7 +40,7 @@ def create_dataloader(opt, phase, namelist=None):
         num_workers = 1
     elif phase in ['database']:
         raw_file_names = parse_file_names(root, namelist,
-                                          namelist_file, ['train'])
+                                          namelist_file, opt.set)
         shuffle = False
         batch_size = 1
         num_workers = 1
