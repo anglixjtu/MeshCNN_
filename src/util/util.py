@@ -71,6 +71,21 @@ def find_classes(dataroot, namelist_file=None):
     return classes, class_to_idx
 
 
+def get_labels_from_path(paths):
+    if type(paths) == list:
+        labels = []
+        for path in paths:
+            label = path.split('/')[-2]
+            labels += [label]
+        return labels
+    elif type(paths) == str:
+        label = paths.split('/')[-2]
+        return label
+    else:
+        raise TypeError('Bad operand type %s. ',
+                        'Expect str or list' % type(paths))
+
+
 def is_mesh_file(filename):
     return any(filename.endswith(extension) for extension in MESH_EXTENSIONS)
 
