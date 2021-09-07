@@ -1,11 +1,13 @@
 import logging
 import os
+import time
 
 
 class Logger:
     def __init__(self, opt, level=logging.INFO):
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
-        self.modes = {'loss': 'a', 'testacc': 'a', 'runs': 'w'}
+        self.modes = {'loss': 'a', 'testacc': 'a',
+                      'runs': 'a', 'retracc': 'a'}
         self.logger_files = {}
         self.loggers = {}
         self.level = level
@@ -63,6 +65,32 @@ class Logger:
         message = 'epoch: {}, TEST ACC/ERR: [{:.2}]\n' \
             .format(epoch, acc)
         self.loggers['testacc'].info(message)
+
+    def record_retracc(self, num_neigb, which_layer,
+                       pooling, feature_size, normalize,
+                       search_methods, metrics):
+        self.loggers['retracc'].handlers[0].setFormatter(
+            logging.Formatter('%(message)s'))
+        self.loggers['retracc'].handlers[1].setFormatter(
+            logging.Formatter('%(message)s'))
+
+        now = time.strftime("%c")
+        message = '================ Retrieval Acc (%s) ================\n'\
+                  'Maximum retrieve %d nearest samples. \n'\
+                  'Using the embeddings from layer [%s]. \n'\
+                  'Using pooling                   [%s]. \n'\
+                  'Feature length                  [%d]. \n'\
+                  'Normalize                       [%d]. \n'\
+                  'Searching method                [%s]. \n'\
+                  % (now, num_neigb, which_layer, pooling,
+                     feature_size, normalize, search_methods)
+        self.loggers['retracc'].info(message)
+
+        message = ''
+        for metric in metrics.keys():
+            message += metric + ': ' + str(metrics[metric])[:5] + ', '
+        message += '\n'
+        self.loggers['retracc'].info(message)
 
     def record_opt(self, opt):
         logger_file = os.path.join(self.save_dir, 'opt.log')
