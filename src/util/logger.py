@@ -5,12 +5,12 @@ import os
 class Logger:
     def __init__(self, opt, level=logging.INFO):
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.name)
-        self.logger_names = ['loss', 'testacc', 'runs']
         self.modes = {'loss': 'a', 'testacc': 'a', 'runs': 'w'}
         self.logger_files = {}
         self.loggers = {}
+        self.level = level
 
-        for logger_name in self.logger_names:
+        for logger_name in self.modes.keys():
             logger_file = os.path.join(self.save_dir, logger_name+'.log')
             mode = self.modes[logger_name]
             self.logger_files[logger_name] = logger_file
@@ -63,3 +63,23 @@ class Logger:
         message = 'epoch: {}, TEST ACC/ERR: [{:.2}]\n' \
             .format(epoch, acc)
         self.loggers['testacc'].info(message)
+
+    def record_opt(self, opt):
+        logger_file = os.path.join(self.save_dir, 'opt.log')
+        mode = 'w'
+        self.logger_files['opt'] = logger_file
+        self.loggers['opt'] = self.setup_logger('opt',
+                                                logger_file,
+                                                mode,
+                                                self.level)
+        self.loggers['opt'].handlers[0].setFormatter(
+            logging.Formatter('%(message)s'))
+        self.loggers['opt'].handlers[1].setFormatter(
+            logging.Formatter('%(message)s'))
+
+        args = vars(opt)
+
+        self.loggers['opt'].info('------------ Options -------------')
+        for k, v in sorted(args.items()):
+            self.loggers['opt'].info('%s: %s' % (str(k), str(v)))
+        self.loggers['opt'].info('------------ End -------------')

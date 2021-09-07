@@ -16,6 +16,8 @@ def run_training(opt):
         dataloaders[phase], dataset[phase] = create_dataloader(opt, phase)
         logger.record_dataset(len(dataset[phase]), opt.mode, phase)
 
+    logger.record_opt(opt)
+
     model = Model(opt, phase='train')
 
     total_steps = 0
