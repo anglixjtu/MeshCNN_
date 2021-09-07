@@ -1,18 +1,53 @@
-from .base_options import BaseOptions
+import os
+import argparse
+from src.util import util
 
 
-class RetrievalOptions(BaseOptions):
+class RetrievalOptions(object):
+    # TODO: inherit from BaseOption
+    def __init__(self):
+        self.parser = argparse.ArgumentParser(
+                        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        self.initialized = False
+
     def initialize(self):
-        BaseOptions.initialize(self)
-        self.parser.add_argument('--results_dir', type=str, default='./results/', help='saves results here.')
-        self.parser.add_argument('--feature_dir', type=str, default='./features/', help='saves features here.')
-        self.parser.add_argument('--pooling', type=str, default=None, help='global_mean_pool, global_add_pool, global_max_pool, global_sort_pool')
-        self.parser.add_argument('--normalize', type=int, default=0, help='0, 1, or 2')
-        self.parser.add_argument('--which_layer', type=str, default='gb_pool', help='which layer to extract features?') 
-        self.parser.add_argument('--search_methods', nargs='+', type=str, default='IndexFlatL2', help='IndexFlatL2, etc') 
-        self.parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
-        self.parser.add_argument('--num_aug', type=int, default=1, help='# of augmentation files')
-        self.parser.add_argument('--num_neigb', type=int, default=4, help='# of augmentation files')
-        self.parser.add_argument('--query_index', type=int, default=0, help='test the results of an example')
-        self.parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
-        self.is_train = False
+        self.parser.add_argument('--database_path', type=str,
+                                 help='Path to database(.pt) file.')
+        self.parser.add_argument('--query_path', type=str,
+                                 help='Path to query(.pt) file or '
+                                 'load mesh(.obj).')
+        self.parser.add_argument('--search_methods', type=str,
+                                 default='IndexFlatL2',
+                                 help='IndexFlatL2, etc')
+        self.parser.add_argument('--evaluation_metrics', nargs='+', type=str,
+                                 default=['patk', 'map', 'ndcg'],
+                                 help='IndexFlatL2, etc')
+        self.parser.add_argument('--num_neigb', type=int, default=6,
+                                 help='# of returned items')
+        self.parser.add_argument('--name', type=str,
+                                 help='name of the experiment. It decides '
+                                 'where to store models and log files')
+        self.parser.add_argument('--checkpoints_dir', type=str,
+                                 default='./checkpoints',
+                                 help='models are saved here')
+        self.parser.add_argument('--show_examples', action='store_true',
+                                 help='whether to visualize example retrieval'
+                                 'results or not')
+        self.parser.add_argument('--save_examples', action='store_true',
+                                 help='whether to save example retrieval'
+                                 'results or not')
+        self.initialized = True
+
+    def parse(self):
+        if not self.initialized:
+            self.initialize()
+        self.opt, unknown = self.parser.parse_known_args()
+
+        if self.opt.name is None:
+            self.opt.name = self.opt.database_path.split('/')[-3]
+
+        # save to the disk
+        expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
+        util.mkdir(expr_dir)
+
+        return self.opt
