@@ -29,8 +29,9 @@ class BaseModel:
         self.optimizer = None
         self.labels = None
         self.loss = None
+        self.ckpt = None
 
-
+        self.load_configs()
         self.set_device(self.gpu_ids)
         self.net = self.define_net(opt)
         self.criterion = self.define_loss()
@@ -119,22 +120,36 @@ class BaseModel:
         if isinstance(self.net, torch.nn.DataParallel):
             self.net = self.net.module
         print('loading the model from %s' % load_path)
+        if hasattr(self.ckpt, '_metadata'):
+            del self.ckpt._metadata
+        self.net.load_state_dict(self.ckpt['net'])
+
+    def load_configs(self, which_epoch='latest'):
+        """load network configurations from disk"""
+        save_filename = '%s_net.pth' % which_epoch
+        load_path = join(self.save_dir, save_filename)
+        print('loading network configurations from %s' % load_path)
         # PyTorch ne wer than 0.4 (e.g., built from
         # GitHub source), you can remove str() on device
-        state_dict = torch.load(load_path, map_location=str(self.device))
-        if hasattr(state_dict, '_metadata'):
-            del state_dict._metadata
-        self.net.load_state_dict(state_dict)
+        self.ckpt = torch.load(load_path, map_location=self.device)
+        if (self.phase in ['train'] and self.continue_train) or\
+           self.phase in ['test', 'database', 'retrieve']:
+            for saved_opt in self.saved_opts:
+                setattr(self.opt, saved_opt, self.ckpt[saved_opt])
 
     def save_network(self, which_epoch='latest'):
         """save model to disk"""
+        ckpt = dict()
         save_filename = '%s_net.pth' % (which_epoch)
         save_path = join(self.save_dir, save_filename)
         if len(self.gpu_ids) > 0 and torch.cuda.is_available():
-            torch.save(self.net.module.cpu().state_dict(), save_path)
+            ckpt['net'] = self.net.module.cpu().state_dict()
             self.net.cuda(self.gpu_ids[0])
         else:
-            torch.save(self.net.cpu().state_dict(), save_path)
+            ckpt['net'] = self.net.cpu().state_dict()
+        for saved_opt in self.saved_opts:
+            ckpt[saved_opt] = getattr(self.opt, saved_opt)
+        torch.save(ckpt, save_path)
 
     # methods for training
     def define_loss(self):
@@ -168,7 +183,7 @@ class BaseModel:
                                               betas=(opt.beta1, 0.999))
             self.scheduler = self.get_scheduler(self.optimizer, opt)
             print_network(self.net)
-    
+
     @staticmethod
     def get_scheduler(optimizer, opt):
         if opt.lr_policy == 'lambda':

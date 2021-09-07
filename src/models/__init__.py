@@ -17,23 +17,26 @@ class Model(BaseModel):
     --arch -> network type
     """
     def __init__(self, opt, phase='train'):
-        super(Model, self).__init__(opt, phase)
-        self.opt = opt
         self.mode = opt.mode
         self.input_nc = opt.input_nc
-        self.phase = phase
+        self.saved_opts = ['arch', 'fc_n', 'input_nc',
+                           'mode', 'ncf', 'neigbs',
+                           'ninput_edges', 'nclasses']
+
+        super(Model, self).__init__(opt, phase)
 
     def set_input(self, data):
-        data = data[0]
         if self.mode == 'classification' and\
            self.phase in ['train', 'test']:
             labels = data[1]
+            data = data[0]
             if not hasattr(data, 'batch'):
                 data.batch = torch.zeros(len(data.x), 1)
                 data.batch = data.batch.long()
             self.data = data.to(self.device)
             self.labels = labels.long().to(self.device)
         else:
+            data = data[0]
             if not hasattr(data, 'batch'):
                 data.batch = torch.zeros(len(data.x))
                 data.batch = data.batch.long()
