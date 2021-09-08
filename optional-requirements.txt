@@ -1,0 +1,2 @@
+matplotlib==3.4.2
+Cython==0.29.24
