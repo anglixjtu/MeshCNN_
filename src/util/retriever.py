@@ -19,7 +19,8 @@ class Retriever:
         Returns:
             dist: Distance between the query feature and
                   each of the retrieved features.
-            ranked_list: Ranked list of the similar items.
+            ranked_list(list): (#query x #feature)
+                         Ranked list of the similar items.
                          If file_names is given, return the names,
                          else, return the index.
             dissm: Dissimilarity.
@@ -27,11 +28,13 @@ class Retriever:
         """
         data_len, fea_len = fea_db.shape
 
-        dist, ranked_list, dissm = self.search_indexflat(
+        dist, ranked_lists, dissm = self.search_indexflat(
             fea_q, fea_db, fea_len, self.num_neigb)
 
         if file_names:
-            ranked_names = [file_names[i] for i in ranked_list[0]]
+            ranked_names = []
+            for ranked_list in ranked_lists:
+                ranked_names += [[file_names[i] for i in ranked_list]]
             ranked_list = ranked_names
 
         return dist, ranked_list, dissm
