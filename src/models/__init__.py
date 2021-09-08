@@ -1,7 +1,4 @@
 import torch
-from os.path import join
-from src.util.util import print_network
-from torch.nn import init
 import torch.nn.functional as F
 from torch.nn import CrossEntropyLoss, MSELoss
 from torch_geometric.utils import to_dense_batch
@@ -57,7 +54,7 @@ class Model(BaseModel):
             try:
                 from chamferdist import ChamferDistance
                 chamfer_loss = ChamferDistance()
-            except ImportError as error:
+            except ImportError:
                 print('ChamferDist not installed, using ChamferLoss')
                 from src.util.losses import ChamferLoss
                 chamfer_loss = ChamferLoss()

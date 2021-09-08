@@ -1,5 +1,5 @@
 import torch
-from os.path import join
+from os.path import join, exists
 from src.util.util import print_network
 from torch.nn import init
 from torch.optim import lr_scheduler
@@ -29,7 +29,6 @@ class BaseModel:
         self.optimizer = None
         self.labels = None
         self.loss = None
-        self.ckpt = None
 
         self.load_configs()
         self.set_device(self.gpu_ids)
@@ -120,22 +119,22 @@ class BaseModel:
         if isinstance(self.net, torch.nn.DataParallel):
             self.net = self.net.module
         print('loading the model from %s' % load_path)
-        if hasattr(self.ckpt, '_metadata'):
-            del self.ckpt._metadata
-        self.net.load_state_dict(self.ckpt['net'])
+        ckpt = torch.load(load_path, map_location=self.device)
+        if hasattr(ckpt, '_metadata'):
+            del ckpt._metadata
+        self.net.load_state_dict(ckpt['net'])
 
     def load_configs(self, which_epoch='latest'):
         """load network configurations from disk"""
         save_filename = '%s_net.pth' % which_epoch
         load_path = join(self.save_dir, save_filename)
-        print('loading network configurations from %s' % load_path)
-        # PyTorch ne wer than 0.4 (e.g., built from
-        # GitHub source), you can remove str() on device
-        self.ckpt = torch.load(load_path, map_location=self.device)
-        if (self.phase in ['train'] and self.continue_train) or\
-           self.phase in ['test', 'database', 'retrieve']:
+        if ((self.phase in ['train'] and self.continue_train) or
+           self.phase in ['test', 'database', 'query']) and\
+           exists(load_path):
+            print('loading network configurations from %s' % load_path)
+            ckpt = torch.load(load_path, map_location=self.device)
             for saved_opt in self.saved_opts:
-                setattr(self.opt, saved_opt, self.ckpt[saved_opt])
+                setattr(self.opt, saved_opt, ckpt[saved_opt])
 
     def save_network(self, which_epoch='latest'):
         """save model to disk"""
