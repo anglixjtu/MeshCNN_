@@ -2,6 +2,7 @@ import time
 import os
 import torch
 import numpy as np
+import torch
 
 from src.options.retrieval_options import RetrievalOptions
 from src.util.retriever import Retriever
@@ -10,16 +11,9 @@ from src.util.logger import Logger
 from src.util.util import get_labels_from_path
 from src.util.visualization import visualize_retrieval
 
-show_namelist = [['test/gear/00070120.obj', 'test/gear/00000219.obj',
-                  'test/motor/00053644.obj', 'test/motor/00064756.obj',
-                  'test/pin/00052497.obj', 'test/pin/00052388.obj',
-                  'test/rotor/00067691.obj', 'test/rotor/00067746.obj',
-                  'test/washer/00040300.obj', 'test/washer/00041575.obj']]
-
 
 def eval_retrieve(opt):
     logger = Logger(opt)
-    logger.loggers['runs'].info('Evaluating retrieval results...')
 
     # load database and query features
     if os.path.isdir(opt.database_path) or\
@@ -33,36 +27,23 @@ def eval_retrieve(opt):
     fea_db, paths_db = database['embeddings'], database['paths']
     fea_q, paths_q = querybase['embeddings'], querybase['paths']
 
+    logger.loggers['runs'].info('Retrieving from database of '
+                                'size %d. \n' % len(paths_db))
+
     retriever = Retriever(opt.num_neigb, opt.search_methods)
     evaluator = Evaluator(opt.evaluation_metrics)
 
-    paths_retr, paths_q_selected = [], []
-    paths_q_show = ['G:\\dataset\\MCB_B\\MCB_B\\' +
-                    x for x in show_namelist[0]]
-    dissm_retr = np.zeros((10, opt.num_neigb))
-    ii = 0
-    out_path = None
+    _, ranked_list, dissm = retriever.get_similar(fea_q, fea_db, paths_db)
 
+    logger.loggers['runs'].info('Done!\n')
+
+    # Evaluation
+    logger.loggers['runs'].info('Start evaluating ...\n')
     for i, path_q in enumerate(paths_q):
-        _, ranked_list, dissm = retriever.get_similar(fea_q[i:i+1, :],
-                                                      fea_db, paths_db)
         gt_label = get_labels_from_path(path_q)
-        pred_labels = get_labels_from_path(ranked_list)
+        pred_labels = get_labels_from_path(ranked_list[i])
         evaluator.update(gt_label, pred_labels, len(pred_labels))
 
-        # for visualization
-        if (path_q in paths_q_show) and opt.show_examples:
-            paths_q_selected.append(path_q)
-            paths_retr.append(ranked_list)
-            dissm_retr[ii, :] = dissm
-            ii += 1
-            if opt.save_examples:
-                out_path = os.path.join(opt.checkpoints_dir, opt.name,
-                                       gt_label+'_%d.png'%ii)
-            visualize_retrieval([path_q], [ranked_list], dissm,
-                                out_path=out_path)
-
-    # log
     logger.record_retracc(opt.num_neigb,
                           database['which_layer'],
                           database['pooling'],
@@ -71,13 +52,30 @@ def eval_retrieve(opt):
                           opt.search_methods,
                           evaluator.metrics)
 
-    logger.loggers['runs'].info('Done!\n')
-
+    # visualization
     if opt.show_examples:
+        logger.loggers['runs'].info('Start visualization ...\n')
+        from tests.show_namelist import show_namelist
+        paths_retr = []
+        dissm_retr = np.zeros((len(show_namelist()), opt.num_neigb))
+        out_path = None
+        show_names = [os.path.join(opt.dataroot, 'raw', x)
+                      for x in show_namelist()]
+        for i, show_name in enumerate(show_names):
+            idx = paths_q.index(show_name)
+            paths_retr.append(ranked_list[idx])
+            dissm_retr[i, :] = dissm[idx, :]
+            if opt.save_examples:
+                gt_label = get_labels_from_path(show_name)
+                out_path = os.path.join(opt.checkpoints_dir, opt.name,
+                                        gt_label + '_%d.png' % (i % 2 + 1))
+            visualize_retrieval([show_name], [ranked_list[idx]],
+                                dissm[idx:idx+1, :],
+                                out_path=out_path)
         if opt.save_examples:
             out_path = os.path.join(opt.checkpoints_dir,
                                     opt.name, 'all.png')
-        visualize_retrieval(paths_q_selected, paths_retr, dissm_retr,
+        visualize_retrieval(show_names, paths_retr, dissm_retr,
                             out_path=out_path)
 
 
