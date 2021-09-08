@@ -52,6 +52,7 @@ def create_dataloader(opt, phase, namelist=None):
         opt.nclasses = len(classes)
     else:
         class_to_idx = None
+        opt.nclasses = 0
 
     dataset = MeshDataset(root, raw_file_names, class_to_idx,
                           transform=transform, pre_transform=pre_transform)

@@ -1,14 +1,9 @@
 import os
-
 import torch
-from torch_geometric.data import Data, Dataset
-import trimesh as tm
-from src.util.util import pad
 import numpy as np
-import pickle
-import time
-import json
-from torch_geometric.nn import knn_graph
+from torch_geometric.data import Dataset
+
+from src.util.util import mkdir
 
 
 class MeshDataset(Dataset):
@@ -19,10 +14,13 @@ class MeshDataset(Dataset):
         self.processed_file_names = file_names
         self.class_to_idx = class_to_idx
         self.data_transform = transform
+        self.pp_paths, self.raw_file_paths = [], []
 
         super(MeshDataset, self).__init__(root,
                                           None,
                                           pre_transform)
+
+        self.generate_paths()
 
     @property
     def raw_file_names(self):
@@ -40,40 +38,61 @@ class MeshDataset(Dataset):
     def processed_file_names(self, value):
         self._processed_file_names = value
 
+    def generate_paths(self):
+        for i, raw_file_name in enumerate(self.raw_file_names):
+            save_path = os.path.join(self.processed_dir,  # './data/processed/'
+                                     self.processed_file_names[i])
+            raw_path = os.path.join(self.raw_dir, raw_file_name)
+            self.pp_paths.append(save_path)
+            self.raw_file_paths.append(raw_path)
+
     def process(self):
         self.pp_paths, self.raw_file_paths = [], []
         for i, raw_file_name in enumerate(self.raw_file_names):
-            save_dir = os.path.join('./data/processed/',
-                                    self.processed_file_names[i])
-            raw_path = os.path.join(self.root, raw_file_name)
-            self.pp_paths.append(save_dir)
+            save_path = os.path.join(self.processed_dir,  # './data/processed/'
+                                     self.processed_file_names[i])
+            raw_path = os.path.join(self.raw_dir, raw_file_name)
+            self.pp_paths.append(save_path)
             self.raw_file_paths.append(raw_path)
 
-            if not os.path.exists(save_dir):
+            if not os.path.exists(save_path):
 
-                mesh = tm.load(raw_path)
+                mesh = self.load_mesh(raw_path)
 
                 if self.pre_transform is not None:
                     mesh = self.pre_transform(mesh)
 
-                if not os.path.exists(os.path.split(save_dir)[0]):
-                    os.makedirs(save_dir)
-                mesh.export(save_dir)
-        # TODO: do not save processed files in memory
+                save_dir = os.path.split(save_path)[0]
+                mkdir(save_dir)
+                mesh.export(save_path)
+        # TODO: do not save processed files in disk
 
     def len(self):
         return len(self.processed_file_names)
+
+    def load_mesh(self, path):
+        try:
+            import trimesh as tm
+            mesh = tm.load(path)
+        except ImportError:
+            # print('Trimesh not installed, using pytorch-geometric')
+            from torch_geometric.io import read_obj
+            mesh = read_obj(path)
+        return mesh
 
     def get(self, idx):
 
         path = self.pp_paths[idx]
 
-        mesh_in = tm.load(path)
+        mesh_in = self.load_mesh(path)
 
         graph_data = self.data_transform(mesh_in)
 
         if self.class_to_idx is not None:
-            label = self.raw_file_names[idx].split('/')[-2]
+            if '/' in self.raw_file_names[idx]:
+                label = self.raw_file_names[idx].split('/')[-2]
+            elif '\\' in self.raw_file_names[idx]:
+                label = self.raw_file_names[idx].split('\\')[-2]
             label = self.class_to_idx[label]
             label = torch.Tensor(np.array([label]))
             return graph_data, label, idx

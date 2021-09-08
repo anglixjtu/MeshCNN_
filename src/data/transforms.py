@@ -24,15 +24,17 @@ class SampleMesh(object):
         nfaces = len(mesh.faces)
         mesh_out = mesh
 
-        # upsample
-        if nfaces < self.ntarget_faces:
-            nsub = max(1, round((self.ntarget_faces/nfaces)**0.25))
-            for i in range(nsub):
-                mesh_out = mesh_out.subdivide()
-        # downsample
-        mesh_out = mesh_out.simplify_quadratic_decimation(self.ntarget_faces)
-
-        return mesh_out
+        try:
+            # upsample
+            if nfaces < self.ntarget_faces:
+                nsub = max(1, round((self.ntarget_faces/nfaces)**0.25))
+                for i in range(nsub):
+                    mesh_out = mesh_out.subdivide()
+            # downsample
+            mesh_out = mesh_out.simplify_quadratic_decimation(self.ntarget_faces)
+            return mesh_out
+        except:
+            return mesh_out
 
     def __repr__(self):
         return '{}()'.format(self.__class__.__name__)
@@ -66,11 +68,16 @@ class ConstructEdgeGraph(object):
         self.slide_verts = slide_verts
         self.len_feature = len_feature
 
-    def __call__(self, mesh_tm):
+    def __call__(self, mesh_in):
         mesh_data = init_mesh_data()
 
-        faces = mesh_tm.faces
-        mesh_data.vs = mesh_tm.vertices
+        try:
+            import trimesh as tm
+            faces = mesh_in.faces
+            mesh_data.vs = mesh_in.vertices
+        except ImportError:
+            faces = mesh_in.face.numpy().transpose()
+            mesh_data.vs = mesh_in.pos.numpy()
 
         # remove non-manifold vertices and edges
         faces, face_areas = remove_non_manifolds(mesh_data, faces)
@@ -78,7 +85,7 @@ class ConstructEdgeGraph(object):
 
         # feature augmentation
         if self.num_aug > 1:
-            mesh_data, faces = augmentation(mesh_data, faces,
+            faces = augmentation(mesh_data, faces,
                                             self.scale_verts,
                                             self.flip_edges)
         build_gemm(mesh_data, faces, face_areas)
