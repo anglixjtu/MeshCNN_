@@ -53,7 +53,6 @@ class BaseOptions:
                                  help='which epoch to load trained model')
         self.parser.add_argument('--batch_size', type=int, default=16, help='input batch size')
         self.parser.add_argument('--arch', type=str, default='mconvnet', help='selects network to use') #todo add choices
-        self.parser.add_argument('--resblocks', type=int, default=0, help='# of res blocks')
         self.parser.add_argument('--fc_n', type=int, default=100, help='# between fc and nclasses') #todo make generic
         
         self.parser.add_argument('--ncf', nargs='+', default=[16, 32, 32], type=int, help='conv filters')
@@ -68,7 +67,7 @@ class BaseOptions:
         # general params
         self.parser.add_argument('--num_threads', default=3, type=int, help='# threads for loading data')
         self.parser.add_argument('--gpu_ids', type=str, default='0', help='gpu ids: e.g. 0  0,1,2, 0,2. use -1 for CPU')
-        self.parser.add_argument('--name', type=str, default='debug', help='name of the experiment. It decides where to store samples and models')
+        self.parser.add_argument('--name', type=str, help='name of the experiment. It decides where to store samples and models')
         self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
         self.parser.add_argument('--serial_batches', action='store_true', help='if true, takes meshes in order, otherwise takes them randomly')
         self.parser.add_argument('--seed', type=int, help='if specified, uses seed')

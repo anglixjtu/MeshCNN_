@@ -6,8 +6,8 @@ class ExtractorOptions(BaseOptions):
     def initialize(self):
         BaseOptions.initialize(self)
         # data params
-        self.parser.add_argument('--save_dir',
-                                 required=True,
+        self.parser.add_argument('--save_dir',type=str,
+                                 default='G:\\dataset\\MCB_B',
                                  help='path to save embeddings')
         self.parser.add_argument('--set',
                                  type=str,
