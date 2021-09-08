@@ -23,7 +23,7 @@ def parse_file_names(dataroot, namelist=None,
         dataroot(str): Root directory for data. If neither 'namelist'
                       nor 'namelist_file' is defined, find files from
                       this directory.
-        namelist(list, optional): List of file names. If defined, parse this.
+        namelist(list/str, optional): List of file names. If defined, parse this.
         namelist_file(str, optional): Path to the .json file which
                                       stores the namelist. If defined,
                                       parse this.
@@ -31,7 +31,13 @@ def parse_file_names(dataroot, namelist=None,
     """
     paths = []
     if namelist:  # parse form namelist
-        paths = namelist
+        if type(namelist) == str:
+            paths = [namelist]
+        elif type(namelist) == list:
+            paths = namelist
+        else:
+            TypeError("Unsupported type of namelist, expected to be "
+                      "str or list")
     elif namelist_file:  # find from namelist_file
         if namelist_file[-5:] == '.json':
             with open(namelist_file, 'r') as f:
@@ -45,7 +51,7 @@ def parse_file_names(dataroot, namelist=None,
                     paths += items
     else:  # find directly from directory
         for set in sets:
-            dir = os.path.join(dataroot, set)
+            dir = os.path.join(dataroot, 'raw', set)
             # subdirs = [os.path.join(dir, x) for x in os.listdir(dir)]
             for target in os.listdir(dir):
                 subdir = os.path.join(dir, target)
@@ -63,7 +69,7 @@ def find_classes(dataroot, namelist_file=None):
         dataset = namelist['train']
         classes = list(dataset.keys())
     else:  # find directly from directory
-        dir = os.path.join(dataroot, 'train')
+        dir = os.path.join(dataroot, 'raw', 'train')
         classes = [d for d in os.listdir(dir)
                    if os.path.isdir(os.path.join(dir, d))]
     classes.sort()
