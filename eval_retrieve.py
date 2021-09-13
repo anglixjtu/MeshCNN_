@@ -8,7 +8,7 @@ from src.options.retrieval_options import RetrievalOptions
 from src.util.retriever import Retriever
 from src.util.evaluation import Evaluator
 from src.util.logger import Logger
-from src.util.util import get_labels_from_path
+from src.util.util import get_labels_from_path, mkdir
 from src.util.visualization import visualize_retrieval
 
 
@@ -67,16 +67,21 @@ def eval_retrieve(opt):
             dissm_retr[i, :] = dissm[idx, :]
             if opt.save_examples:
                 gt_label = get_labels_from_path(show_name)
-                out_path = os.path.join(opt.checkpoints_dir, opt.name,
+                save_dir = os.path.join(opt.checkpoints_dir, opt.name,
+                                        database['which_layer'])
+                mkdir(save_dir)
+                out_path = os.path.join(save_dir,
                                         gt_label + '_%d.png' % (i % 2 + 1))
             visualize_retrieval([show_name], [ranked_list[idx]],
                                 dissm[idx:idx+1, :],
-                                out_path=out_path)
+                                out_path=out_path, show_self=True)
         if opt.save_examples:
-            out_path = os.path.join(opt.checkpoints_dir,
-                                    opt.name, 'all.png')
+            save_dir = os.path.join(opt.checkpoints_dir, opt.name,
+                                    database['which_layer'])
+            mkdir(save_dir)
+            out_path = os.path.join(save_dir, 'all.png')
         visualize_retrieval(show_names, paths_retr, dissm_retr,
-                            out_path=out_path)
+                            out_path=out_path, show_self=True)
 
 
 if __name__ == '__main__':
