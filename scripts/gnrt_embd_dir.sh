@@ -7,7 +7,6 @@ python generate_embedding_db.py \
 --dataroot G:/dataset/MCB_B \
 --name fix_aec8_aug4_bd \
 --set train test \
---aug_method 4 \
 --which_epoch latest \
 --which_layer gb_pool \
 --pooling None \
@@ -15,5 +14,4 @@ python generate_embedding_db.py \
 --batch_size 16 \
 --num_threads 4 \
 --gpu_ids -1 \
---arch mesh_aept \
 --save_dir checkpoints \
