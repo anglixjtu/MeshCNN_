@@ -134,7 +134,8 @@ class BaseModel:
             print('loading network configurations from %s' % load_path)
             ckpt = torch.load(load_path, map_location=self.device)
             for saved_opt in self.saved_opts:
-                setattr(self.opt, saved_opt, ckpt[saved_opt])
+                if saved_opt in ckpt.keys():
+                    setattr(self.opt, saved_opt, ckpt[saved_opt])
 
     def save_network(self, which_epoch='latest'):
         """save model to disk"""

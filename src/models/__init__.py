@@ -18,7 +18,8 @@ class Model(BaseModel):
         self.input_nc = opt.input_nc
         self.saved_opts = ['arch', 'fc_n', 'input_nc',
                            'mode', 'ncf', 'neigbs',
-                           'ninput_edges', 'nclasses']
+                           'ninput_edges', 'nclasses',
+                           'aug_method']
 
         super(Model, self).__init__(opt, phase)
 
@@ -50,7 +51,7 @@ class Model(BaseModel):
             return CrossEntropyLoss()
         elif self.loss_name == 'mse':
             return MSELoss()
-        elif self.loss_name == 'chamfer':
+        elif self.loss_name in ['chamfer']:
             try:
                 from chamferdist import ChamferDistance
                 chamfer_loss = ChamferDistance()
@@ -60,17 +61,28 @@ class Model(BaseModel):
                 chamfer_loss = ChamferLoss()
             return chamfer_loss
         else:
-            raise NotImplementedError('Loss function name [%s]'
+            raise NotImplementedError('Loss function [%s]'
                                       'is not recognized' % self.loss_name)
+
+    def backward(self, out, target):
+        if self.loss_name in ['chamfer']:
+            self.loss = self.criterion(out, target, reverse=self.opt.reverse,
+                                       bidirectional=self.opt.bidirectional)
+        else:
+            self.loss = self.criterion(out, target)
+        self.loss.backward()
 
     def set_output(self, out):
         out, _ = out
         if self.loss_name in ['ce']:
             target = self.labels.reshape(-1,)
-        elif self.loss_name in ['mse', 'chamfer']:
-            target, _ = to_dense_batch(self.data.x, self.data.batch)
-            out = out.view(self.data.batch.max()+1, self.input_nc, -1)
+        elif self.loss_name in ['chamfer']:
+            target = self.data.y.reshape(self.data.batch.max()+1, -1,
+                                         self.data.y.shape[1])
+            out = out.view(self.data.batch.max()+1, self.data.y.shape[1], -1)
             out = out.transpose(2, 1).contiguous()
+        elif self.loss_name in ['mse']:
+            target = self.data.x
         return out, target
 
     def get_accuracy(self, pred, gt):
@@ -79,8 +91,12 @@ class Model(BaseModel):
             pred_class = pred.data.max(1)[1]
             correct = pred_class.eq(gt).sum()
             return correct/len(gt)
-        elif self.mode == 'autoencoder':
-            return self.criterion(pred, gt)
+        elif self.mode in ['autoencoder', 'autoencoder_pt']:
+            if self.loss_name in ['chamfer']:
+                return self.criterion(pred, gt, reverse=self.opt.reverse,
+                                      bidirectional=self.opt.bidirectional)
+            else:
+                return self.criterion(pred, gt)
 
     ##################
 
@@ -92,13 +108,17 @@ class Model(BaseModel):
             net = MeshClsNet(opt.input_nc, opt.ncf,
                              opt.nclasses, opt.ninput_edges,
                              opt.pool_res, opt.fc_n, opt.norm)
-        elif opt.arch == 'mesh_ae':
-            from .autoencoder_nets import BaseUNet
-            pool_ratios = [0.8, 0.6, 0.4, 0.24]
-            net = BaseUNet(in_channels=opt.input_nc,
-                           hidden_channels=opt.ncf,
-                           pool_ratios=pool_ratios,
-                           sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_unet':
+            from .u_net import GraphUNet
+            pool_ratios = [380, 160, 80, 16]
+            net = GraphUNet(in_channels=opt.input_nc,
+                            hidden_channels=32,
+                            out_channels=opt.input_nc,
+                            pool_ratios=pool_ratios,
+                            depth=4,
+                            sum_res=True, act=F.relu,
+                            nclasses=opt.nclasses,
+                            mode=opt.mode)
         elif opt.arch == 'mesh_aes':
             from .autoencoder_nets import ShallowCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
@@ -108,6 +128,20 @@ class Model(BaseModel):
                            sum_res=True, act=F.relu)
         elif opt.arch == 'mesh_aec' and opt.norm == 'batch':
             from .autoencoder_nets import BaseCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = BaseCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_aept' and opt.norm == 'batch':
+            from .ae_nets_pt import BaseCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = BaseCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_aea' and opt.norm == 'batch':
+            from .ae_nets_act import BaseCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
             net = BaseCNet(in_channels=opt.input_nc,
                            hidden_channels=opt.ncf,
