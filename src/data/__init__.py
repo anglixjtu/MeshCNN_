@@ -1,7 +1,7 @@
 from torch_geometric.data import DataLoader
 from src.util.util import parse_file_names, find_classes
 from .transforms import (SampleMesh)
-from .transform_recipes import set_transforms
+from .transform_recipes import *
 import os
 import numpy as np
 import pickle
@@ -13,10 +13,11 @@ def create_dataloader(opt, phase, namelist=None):
 
     namelist_file = opt.namelist_file
     root = opt.dataroot
+    aug_method = 'set_transforms' + opt.aug_method
     pre_transform = SampleMesh(opt.ninput_edges / 1.5)
 
     # compute mean and std (augmentation closed by setting num_aug=1)
-    transform = set_transforms('compute_mean_std', opt)
+    transform = eval(aug_method)('compute_mean_std', opt)
     raw_file_names = parse_file_names(root, namelist,
                                       namelist_file, ['train'])
     dataset = MeshDataset(root, raw_file_names, None,
@@ -25,7 +26,7 @@ def create_dataloader(opt, phase, namelist=None):
     mean, std, ninput_channels = compute_mean_std(opt.name, dataset)
 
     # define dataset and dataloader
-    transform = set_transforms(phase, opt, mean, std, ninput_channels)
+    transform = eval(aug_method)(phase, opt, mean, std, ninput_channels)
     if phase in ['train']:
         raw_file_names = parse_file_names(root, namelist,
                                           namelist_file, ['train'])
@@ -54,7 +55,8 @@ def create_dataloader(opt, phase, namelist=None):
         class_to_idx = None
         opt.nclasses = 0
 
-    dataset = MeshDataset(root, raw_file_names, class_to_idx,
+    dataset = MeshDataset(root, raw_file_names,
+                          phase=phase, class_to_idx=class_to_idx,
                           transform=transform, pre_transform=pre_transform)
     dataloader = DataLoader(dataset, batch_size=batch_size,
                             shuffle=shuffle,

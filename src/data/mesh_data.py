@@ -4,10 +4,14 @@ import numpy as np
 from torch_geometric.data import Dataset
 
 from src.util.util import mkdir
+from torch_geometric.io import read_obj
+
+from .transforms import Rotate
 
 
 class MeshDataset(Dataset):
-    def __init__(self, root, file_names, class_to_idx=None,
+    def __init__(self, root, file_names, phase='train',
+                 class_to_idx=None,
                  transform=None, pre_transform=None):
 
         self.raw_file_names = file_names
@@ -15,6 +19,7 @@ class MeshDataset(Dataset):
         self.class_to_idx = class_to_idx
         self.data_transform = transform
         self.pp_paths, self.raw_file_paths = [], []
+        self.phase = phase
 
         super(MeshDataset, self).__init__(root,
                                           None,
@@ -84,7 +89,10 @@ class MeshDataset(Dataset):
 
         path = self.pp_paths[idx]
 
-        mesh_in = self.load_mesh(path)
+        # mesh_in = self.load_mesh(path)
+        mesh_in = read_obj(path)
+
+        # mesh_in = Rotate(45, 2)(mesh_in)
 
         graph_data = self.data_transform(mesh_in)
 

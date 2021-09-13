@@ -496,15 +496,19 @@ def set_edge_lengths(mesh, edge_points=None):
     mesh.edge_lengths = edge_lengths
 
 
-def extract_features(mesh):
+def extract_features(mesh, input_nc):
+    if input_nc in [6, 7]:
+        extractors = [dihedral_angle_areas]
+    elif input_nc in [5, 8, 9]:
+        extractors = [dihedral_angle,
+                      symmetric_opposite_angles,
+                      symmetric_ratios]
     features = []
     edge_points = get_edge_points(mesh)
     set_edge_lengths(mesh, edge_points)
     with np.errstate(divide='raise'):
         try:
-            for extractor in [dihedral_angle,
-                              symmetric_opposite_angles,
-                              symmetric_ratios]:
+            for extractor in extractors:
                 feature = extractor(mesh, edge_points)
                 features.append(feature)
             return np.concatenate(features, axis=0)
