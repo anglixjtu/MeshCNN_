@@ -9,7 +9,7 @@ python train.py \
 --mode autoencoder \
 --flip_edges 0.2 \
 --slide_verts 0.2 \
---num_aug 20 \
+--num_aug 1 \
 --niter_decay 100 \
 --input_nc 9 \
 --neigbs 11 \

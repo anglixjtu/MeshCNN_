@@ -4,15 +4,16 @@
 ## set pooling = global_mean_pool if which_layer = encoderx
 ## else pooling = None if which_layer = gb_pool
 python generate_embedding_db.py \
---dataroot data/mcbb_tiny/ \
---name fix_ae_8 \
---set test \
+--dataroot G:/dataset/MCB_B \
+--name fix_aec8_aug4_bd \
+--set train test \
+--aug_method 4 \
 --which_epoch latest \
---which_layer encoder0 \
---pooling global_mean_pool \
+--which_layer gb_pool \
+--pooling None \
 --normalize 2 \
 --batch_size 16 \
 --num_threads 4 \
 --gpu_ids -1 \
---arch mesh_aec \
+--arch mesh_aept \
 --save_dir checkpoints \
