@@ -8,13 +8,25 @@ class ChamferLoss(nn.Module):
         super(ChamferLoss, self).__init__()
         self.use_cuda = torch.cuda.is_available()
 
-    def forward(self, preds, gts):
-        P = self.batch_pairwise_dist(gts, preds)
-        mins, _ = torch.min(P, 1)
-        loss_1 = torch.sum(mins)
-        mins, _ = torch.min(P, 2)
-        loss_2 = torch.sum(mins)
-        return loss_1 + loss_2
+    def forward(self, preds, gts, reverse=True, bidirectional=True):
+        def compute_loss(preds, gts):
+            P = self.batch_pairwise_dist(gts, preds)
+            mins, _ = torch.min(P, 1)
+            loss_1 = torch.sum(mins)
+            mins, _ = torch.min(P, 2)
+            loss_2 = torch.sum(mins)
+            return loss_1 + loss_2
+
+        if bidirectional or reverse:
+            backward_loss = compute_loss(gts, preds)
+            if reverse:
+                return backward_loss
+            else:
+                forward_loss = compute_loss(preds, gts)
+                return forward_loss + backward_loss
+        else:
+            forward_loss = compute_loss(preds, gts)
+            return forward_loss
 
     def batch_pairwise_dist(self, x, y):
         bs, num_points_x, points_dim = x.size()
