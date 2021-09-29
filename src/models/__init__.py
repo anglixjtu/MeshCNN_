@@ -13,6 +13,7 @@ class Model(BaseModel):
     --mode -> classification / autoencoder)
     --arch -> network type
     """
+
     def __init__(self, opt, phase='train'):
         self.mode = opt.mode
         self.input_nc = opt.input_nc
@@ -66,7 +67,7 @@ class Model(BaseModel):
 
     def backward(self, out, target):
         if self.loss_name in ['chamfer']:
-            self.loss = self.criterion(out, target, reverse=self.opt.reverse,
+            self.loss = self.criterion(out, target,
                                        bidirectional=self.opt.bidirectional)
         else:
             self.loss = self.criterion(out, target)
@@ -123,9 +124,9 @@ class Model(BaseModel):
             from .autoencoder_nets import ShallowCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
             net = ShallowCNet(in_channels=opt.input_nc,
-                           hidden_channels=opt.ncf,
-                           pool_ratios=pool_ratios,
-                           sum_res=True, act=F.relu)
+                              hidden_channels=opt.ncf,
+                              pool_ratios=pool_ratios,
+                              sum_res=True, act=F.relu)
         elif opt.arch == 'mesh_aec' and opt.norm == 'batch':
             from .autoencoder_nets import BaseCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
@@ -165,9 +166,9 @@ class Model(BaseModel):
             from .autoencoder_nets import PyrmPCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
             net = PyrmPCNet(in_channels=opt.input_nc,
-                           hidden_channels=opt.ncf,
-                           pool_ratios=pool_ratios,
-                           sum_res=True, act=F.relu)
+                            hidden_channels=opt.ncf,
+                            pool_ratios=pool_ratios,
+                            sum_res=True, act=F.relu)
         else:
             raise NotImplementedError('Encoder model name [%s]'
                                       'is not recognized' % opt.arch)
