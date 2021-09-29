@@ -71,7 +71,7 @@ def eval_retrieve(opt):
                                         database['which_layer'])
                 mkdir(save_dir)
                 out_path = os.path.join(save_dir,
-                                        gt_label + '_%d.png' % (i % 2 + 1))
+                                        gt_label + '_%d.png' % (i % 2 + 1))  # _r_rr
             visualize_retrieval([show_name], [ranked_list[idx]],
                                 dissm[idx:idx+1, :],
                                 out_path=out_path, show_self=True)
@@ -79,8 +79,9 @@ def eval_retrieve(opt):
             save_dir = os.path.join(opt.checkpoints_dir, opt.name,
                                     database['which_layer'])
             mkdir(save_dir)
-            out_path = os.path.join(save_dir, 'all.png')
-        visualize_retrieval(show_names, paths_retr, dissm_retr,
+            out_path = os.path.join(save_dir, 'all.png')  # r_rr
+        visualize_retrieval(show_names, paths_retr, dissm=dissm_retr,
+                            sub_size=(100, 80), font_size=7,
                             out_path=out_path, show_self=True)
 
 
