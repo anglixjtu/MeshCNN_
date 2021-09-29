@@ -16,7 +16,7 @@ MESH_EXTENSIONS = [
 
 
 def parse_file_names(dataroot, namelist=None,
-                     namelist_file=None, sets='train'):
+                     namelist_file=None, sets=['train']):
     """Parse paths of data.
 
     Args:
@@ -155,6 +155,7 @@ def calculate_entropy(np_array):
 
 class MetricCounter(object):
     """store metrics and compute average"""
+
     def __init__(self):
         self.reset()
 
