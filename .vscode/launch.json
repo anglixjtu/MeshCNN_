@@ -10,7 +10,9 @@
             "request": "launch",
             "program": "eval_retrieve.py",
             "console": "integratedTerminal",
-            "args":[
+            "args": [
+                "--dataroot",
+                "G:/dataset/MCB_B/MCB_B/",
                 "--database_path",
                 "G:/dataset/MCB_B/database/fix_10c/gb_pool/traintest.pt",
                 "--query_path",
@@ -26,12 +28,37 @@
             ]
         },
         {
+            "name": "Python: run_retrieve",
+            "type": "python",
+            "request": "launch",
+            "program": "retrieve.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--dataroot",
+                "G:/dataset/MCB_B/",
+                "--database_path",
+                "G:/dataset/MCB_B/database/fix_aept8_aug9_bd_na/encoder2.5/traintest.pt",
+                "--query_path",
+                "test/washer/00040300.obj",
+                "--search_methods",
+                "IndexFlatL2",
+                "--num_neigb",
+                "6",
+                "--show_examples",
+                "True",
+                "--save_examples",
+                "True",
+                "--gpu_id",
+                "-1"
+            ]
+        },
+        {
             "name": "Python: run_retr_ae",
             "type": "python",
             "request": "launch",
             "program": "retrieve.py",
             "console": "integratedTerminal",
-            "args":[
+            "args": [
                 "--database_path",
                 "G:/dataset/MCB_B/database/fix_ae_8/gb_pool/testtrain.pt",
                 "--query_path",
@@ -69,7 +96,6 @@
                 "-1",
                 "--batch_size",
                 "10",
-                
             ]
         },
         {
@@ -78,13 +104,15 @@
             "request": "launch",
             "program": "generate_embedding_db.py",
             "console": "integratedTerminal",
-            "args":[
+            "args": [
                 "--name",
-                "fix_ae_8",
+                "fix_aept4_aug4_bd_na",
+                "--aug_method",
+                "4",
                 "--which_epoch",
                 "latest",
                 "--set",
-                "train",
+                //"train",
                 "test",
                 "--which_layer",
                 "gb_pool",
@@ -172,15 +200,19 @@
             "console": "integratedTerminal",
             "args": [
                 "--arch",
-                "mesh_aec",
+                "mesh_aept",
+                "--mode",
+                "autoencoder_pt",
                 "--loss",
                 "chamfer",
+                "--aug_method",
+                "9",
                 "--dataroot",
-                "G:/dataset/MCB_B/MCB_B/",
+                "G:/dataset/MCB_B/",
                 "--namelist_file",
-                "G:/dataset/MCB_B/MCB_B/namelist/mcbb_5c1000s.json",
+                "G:/dataset/MCB_B/namelist/mcbb_5c1000s.json",
                 "--name",
-                "fix_aec8",
+                "fix_aept8_aug9_bd_na",
                 "--ncf",
                 "32",
                 "64",
@@ -192,25 +224,27 @@
                 "--slide_verts",
                 "0.2",
                 "--num_aug",
-                "20", //20
+                "1", //20
                 "--gpu_ids",
                 "-1",
                 "--num_threads",
                 "1",
                 "--batch_size",
-                "10",
+                "16",
                 "--input_nc",
                 "8",
-                "--mode",
-                "autoencoder",
                 "--neigbs",
-                "11"
-                //"--which_epoch",
-                //"20",
+                "11",
+                //"--reverse",
+                //"True",
+                //"--bidirectional",
+                //"True",
+                "--which_epoch",
+                "latest",
                 //"--epoch_count",
-                //"20",
-                //"--continue_train",
-                //"true",
+                //"200",
+                "--continue_train",
+                "true",
             ]
         },
         {
@@ -331,7 +365,7 @@
             "request": "launch",
             "program": "run_timer.py",
             "console": "integratedTerminal",
-            "args":[
+            "args": [
                 "--name",
                 "MCB_B_NR_1000",
                 "--search_methods",
