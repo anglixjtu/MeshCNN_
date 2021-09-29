@@ -7,7 +7,7 @@ from .mesh_process import (init_mesh_data,
                            extract_features,
                            compute_edge_pos,
                            get_edge_connection)
-from src.util.util import pad
+from src import util
 import torch
 from torch_geometric.nn import knn_graph
 import numpy as np
@@ -36,7 +36,8 @@ class SampleMesh(object):
                 for i in range(nsub):
                     mesh_out = mesh_out.subdivide()
             # downsample
-            mesh_out = mesh_out.simplify_quadratic_decimation(self.ntarget_faces)
+            mesh_out = mesh_out.simplify_quadratic_decimation(
+                self.ntarget_faces)
             return mesh_out
         except:
             return mesh_out
@@ -61,11 +62,11 @@ class ConstructEdgeGraph(object):
     """
 
     def __init__(self, ninput_edges, num_aug=1,
-                 neigbs=11, 
+                 neigbs=11,
                  scale_verts=False, flip_edges=0.2,
                  slide_verts=0.2,
                  len_feature=True,
-                 input_nc = 8):
+                 input_nc=8):
         self.ninput_edges = ninput_edges
         self.num_aug = num_aug
         self.neigbs = neigbs
@@ -80,7 +81,7 @@ class ConstructEdgeGraph(object):
         faces = mesh_in.faces
         mesh_data.vs = mesh_in.vertices
         y = mesh_in.sample(4096)
-        y -= np.mean(y , 0)
+        y -= np.mean(y, 0)
         y /= np.sqrt(np.std(y, 0))
         selected = np.random.permutation(4096)
         y = y[selected[:2048], :]
@@ -117,11 +118,12 @@ class ConstructEdgeGraph(object):
 
         # resize the number of input edges
         if mesh_data.features.shape[1] < self.ninput_edges:
-            edge_features = pad(mesh_data.features, self.ninput_edges)
+            edge_features = util.util.pad(
+                mesh_data.features, self.ninput_edges)
             edge_features = edge_features.transpose()
-            edge_pos = pad(mesh_data.pos, self.ninput_edges, dim=0)
-            edge_len = pad(mesh_data.edge_lengths.reshape(-1, 1),
-                           self.ninput_edges, dim=0)
+            edge_pos = util.util.pad(mesh_data.pos, self.ninput_edges, dim=0)
+            edge_len = util.util.pad(mesh_data.edge_lengths.reshape(-1, 1),
+                                     self.ninput_edges, dim=0)
         else:
             edge_features = mesh_data.features[:, :self.ninput_edges]
             edge_features = edge_features.transpose()
@@ -244,7 +246,8 @@ class SamplePoints(object):
         vec2 = pos[face[2]] - pos[face[0]]
 
         if self.include_normals:
-            data_out.norm = torch.nn.functional.normalize(vec1.cross(vec2), p=2)
+            data_out.norm = torch.nn.functional.normalize(
+                vec1.cross(vec2), p=2)
 
         pos_sampled = pos[face[0]]
         pos_sampled += frac[:, :1] * vec1
@@ -281,7 +284,7 @@ class SetY(object):
             pos = data.pos.clone()
             pos_mean = torch.mean(pos, 0, keepdim=True)
             pos -= pos_mean
-            
+
             if self.input_nc in [5]:
                 data.y = x
             elif self.input_nc in [8, 9]:

@@ -1,5 +1,5 @@
 from torch_geometric.data import DataLoader
-from src.util.util import parse_file_names, find_classes
+from src import util
 from .transforms import (SampleMesh)
 from .transform_recipes import *
 import os
@@ -18,8 +18,8 @@ def create_dataloader(opt, phase, namelist=None):
 
     # compute mean and std (augmentation closed by setting num_aug=1)
     transform = eval(aug_method)('compute_mean_std', opt)
-    raw_file_names = parse_file_names(root, namelist,
-                                      namelist_file, ['train'])
+    raw_file_names = util.util.parse_file_names(root, namelist,
+                                                namelist_file, ['train'])
     dataset = MeshDataset(root, raw_file_names, None,
                           transform=transform,
                           pre_transform=pre_transform)
@@ -28,20 +28,20 @@ def create_dataloader(opt, phase, namelist=None):
     # define dataset and dataloader
     transform = eval(aug_method)(phase, opt, mean, std, ninput_channels)
     if phase in ['train']:
-        raw_file_names = parse_file_names(root, namelist,
-                                          namelist_file, ['train'])
+        raw_file_names = util.util.parse_file_names(root, namelist,
+                                                    namelist_file, ['train'])
         shuffle = True
         batch_size = opt.batch_size
         num_workers = int(opt.num_threads)
     elif phase in ['test', 'query']:
-        raw_file_names = parse_file_names(root, namelist,
-                                          namelist_file, ['test'])
+        raw_file_names = util.util.parse_file_names(root, namelist,
+                                                    namelist_file, ['test'])
         shuffle = False
         batch_size = 1
         num_workers = 1
     elif phase in ['database']:
-        raw_file_names = parse_file_names(root, namelist,
-                                          namelist_file, opt.set)
+        raw_file_names = util.util.parse_file_names(root, namelist,
+                                                    namelist_file, opt.set)
         shuffle = False
         batch_size = opt.batch_size
         num_workers = int(opt.num_threads)
@@ -49,7 +49,7 @@ def create_dataloader(opt, phase, namelist=None):
         raise NotImplementedError('phase [%s] is not implemented' % phase)
 
     if phase in ['train', 'test'] and opt.mode in ['classification']:
-        classes, class_to_idx = find_classes(root, namelist_file)
+        classes, class_to_idx = util.util.find_classes(root, namelist_file)
         opt.nclasses = len(classes)
     else:
         class_to_idx = None

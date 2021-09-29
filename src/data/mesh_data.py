@@ -3,10 +3,11 @@ import torch
 import numpy as np
 from torch_geometric.data import Dataset
 
-from src.util.util import mkdir
+from src import util
 from torch_geometric.io import read_obj
 
 from .transforms import Rotate
+from torch_geometric.transforms import (NormalizeRotation, RandomRotate)
 
 
 class MeshDataset(Dataset):
@@ -68,7 +69,7 @@ class MeshDataset(Dataset):
                     mesh = self.pre_transform(mesh)
 
                 save_dir = os.path.split(save_path)[0]
-                mkdir(save_dir)
+                util.util.mkdir(save_dir)
                 mesh.export(save_path)
         # TODO: do not save processed files in disk
 
@@ -92,7 +93,13 @@ class MeshDataset(Dataset):
         # mesh_in = self.load_mesh(path)
         mesh_in = read_obj(path)
 
-        # mesh_in = Rotate(45, 2)(mesh_in)
+        '''mesh_in = Rotate(90, 0)(mesh_in)
+        mesh_in = Rotate(90, 1)(mesh_in)
+        mesh_in = Rotate(90, 2)(mesh_in)'''
+
+        '''mesh_in = RandomRotate(180, 0)(mesh_in)
+        mesh_in = RandomRotate(180, 1)(mesh_in)
+        mesh_in = RandomRotate(180, 2)(mesh_in)'''
 
         graph_data = self.data_transform(mesh_in)
 
