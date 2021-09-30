@@ -6,8 +6,8 @@
 python generate_embedding_db.py \
 --dataroot G:/dataset/MCB_B/ \
 --namelist_file G:/dataset/MCB_B/namelist/mcbb_5c1000s.json \
---name fix_aept8_aug10_bd_na \
---input_nc 8 \
+--name fix_aept5_aug8 \
+--input_nc 5 \
 --set test \
 --which_epoch latest \
 --which_layer gb_pool \

@@ -5,8 +5,9 @@
 ## else pooling = None if which_layer = gb_pool
 python generate_embedding_db.py \
 --dataroot G:/dataset/MCB_B \
---name fix_aec8_aug4_bd \
---set train test \
+--name fix_aept5_aug8 \
+--input_nc 5 \
+--set test \
 --which_epoch latest \
 --which_layer gb_pool \
 --pooling None \
