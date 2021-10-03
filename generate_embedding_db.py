@@ -36,7 +36,7 @@ def run_extractor(opt):
 
     save_dir = os.path.join(opt.save_dir, opt.name, opt.which_layer)
     mkdir(save_dir)
-    save_dir = os.path.join(save_dir, ''.join(opt.set))  # + '_rr'
+    save_dir = os.path.join(save_dir, ''.join(opt.set)) + '_rr'
     extractor.save(save_dir, embeddings)
 
     logger.loggers['runs'].info('Embeddings saved as %s' % save_dir+'.pt')
