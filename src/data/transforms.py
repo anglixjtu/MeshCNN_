@@ -6,7 +6,9 @@ from .mesh_process import (init_mesh_data,
                            post_augmentation,
                            extract_features,
                            compute_edge_pos,
-                           get_edge_connection)
+                           get_edge_connection,
+                           get_neighbor_dist_angle,
+                           get_angles)
 from src import util
 import torch
 from torch_geometric.nn import knn_graph
@@ -114,22 +116,21 @@ class ConstructEdgeGraph(object):
 
         # extract 5-/6-channel features
         mesh_data.features = extract_features(mesh_data, self.input_nc)
-        mesh_data.pos = compute_edge_pos(mesh_data.edges, mesh_data.vs)
 
         # resize the number of input edges
-        if mesh_data.features.shape[1] < self.ninput_edges:
+        if mesh_data.features.shape[0] < self.ninput_edges:
             edge_features = util.util.pad(
-                mesh_data.features, self.ninput_edges)
-            edge_features = edge_features.transpose()
+                mesh_data.features, self.ninput_edges, dim=0)
+            # edge_features = edge_features.transpose()
             edge_pos = util.util.pad(mesh_data.pos, self.ninput_edges, dim=0)
-            edge_len = util.util.pad(mesh_data.edge_lengths.reshape(-1, 1),
-                                     self.ninput_edges, dim=0)
+            '''edge_len = util.util.pad(mesh_data.edge_lengths.reshape(-1, 1),
+                                     self.ninput_edges, dim=0)'''
         else:
-            edge_features = mesh_data.features[:, :self.ninput_edges]
-            edge_features = edge_features.transpose()
+            edge_features = mesh_data.features[:self.ninput_edges, :]
+            # edge_features = edge_features.transpose()
             edge_pos = mesh_data.pos[:self.ninput_edges, :]
-            edge_len = mesh_data.edge_lengths.reshape(-1, 1)
-            edge_len = edge_len[:self.ninput_edges, :]
+            '''edge_len = mesh_data.edge_lengths.reshape(-1, 1)
+            edge_len = edge_len[:self.ninput_edges, :]'''
 
         # generate connections
         if self.neigbs > 0:
@@ -148,9 +149,6 @@ class ConstructEdgeGraph(object):
                                             dtype=torch.long)
 
         # convert edge features and connections to pytorch-geometric data
-        if self.len_feature:
-            edge_features = np.concatenate((edge_features,
-                                            edge_len), 1)
         edge_features = torch.tensor(edge_features,
                                      dtype=torch.float)
 
@@ -181,7 +179,7 @@ class NormalizeFeature(object):
                              % (n_channels, self.ninput_channels))
         mean = torch.tensor(self.mean).reshape(1, -1)
         std = torch.tensor(self.std).reshape(1, -1)
-        if n_channels > 5:  # do not use mean/std normalize pos5
+        if n_channels in [8]:  # do not use mean/std normalize pos5
             mean[:, 5:] = 0
             std[:, 5:] = 1
         data.x = (data.x - mean) / std
@@ -198,7 +196,7 @@ class SetX(object):
         self.input_nc = input_nc
 
     def __call__(self, data):
-        if self.input_nc > 5:
+        if self.input_nc in [8]:
             data.x = torch.cat((data.x, data.pos), 1)
         return data
 
@@ -276,19 +274,28 @@ class SetY(object):
     def __call__(self, data):
         if self.mode in ['autoencoder']:
             x = data.x.clone()
-            x_mean = torch.mean(x, 0, keepdim=True)
+            '''x_mean = torch.mean(x, 0, keepdim=True)
             x -= x_mean
             num = torch.max(x.abs(), 0, keepdim=True)[0]
-            x = (x / num) * 0.99999
+            x = (x / num) * 0.99999'''
 
-            pos = data.pos.clone()
-            pos_mean = torch.mean(pos, 0, keepdim=True)
-            pos -= pos_mean
+            # data.x = x
 
-            if self.input_nc in [5]:
+            if self.input_nc in [5, 7, 6, 9, 10, 16]:
                 data.y = x
-            elif self.input_nc in [8, 9]:
+            elif self.input_nc in [8]:
+                pos = data.pos.clone()
+                pos_mean = torch.mean(pos, 0, keepdim=True)
+                pos -= pos_mean
                 data.y = (torch.cat((x, pos), 1))
+        if self.mode in ['autoencoder_glb']:
+            x = data.x[:, [5, 10, 11, 12, 13, 14, 15]].clone()
+            '''x_mean = torch.mean(x, 0, keepdim=True)
+            x -= x_mean
+            num = torch.max(x.abs(), 0, keepdim=True)[0]
+            x = (x / num) * 0.99999'''
+            data.y = x
+
         return data
 
     def __repr__(self):
