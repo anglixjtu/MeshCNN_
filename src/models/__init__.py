@@ -77,13 +77,11 @@ class Model(BaseModel):
         out, _ = out
         if self.loss_name in ['ce']:
             target = self.labels.reshape(-1,)
-        elif self.loss_name in ['chamfer']:
+        elif self.loss_name in ['chamfer', 'mse']:
             target = self.data.y.reshape(self.data.batch.max()+1, -1,
                                          self.data.y.shape[1])
             out = out.view(self.data.batch.max()+1, self.data.y.shape[1], -1)
             out = out.transpose(2, 1).contiguous()
-        elif self.loss_name in ['mse']:
-            target = self.data.x
         return out, target
 
     def get_accuracy(self, pred, gt):
@@ -92,7 +90,7 @@ class Model(BaseModel):
             pred_class = pred.data.max(1)[1]
             correct = pred_class.eq(gt).sum()
             return correct/len(gt)
-        elif self.mode in ['autoencoder', 'autoencoder_pt']:
+        elif self.mode in ['autoencoder', 'autoencoder_pt', 'autoencoder_glb']:
             if self.loss_name in ['chamfer']:
                 return self.criterion(pred, gt, reverse=self.opt.reverse,
                                       bidirectional=self.opt.bidirectional)
@@ -112,11 +110,24 @@ class Model(BaseModel):
         elif opt.arch == 'mesh_unet':
             from .u_net import GraphUNet
             pool_ratios = [380, 160, 80, 16]
+            hidden_channels = [32, 64, 64, 128, 256]
             net = GraphUNet(in_channels=opt.input_nc,
-                            hidden_channels=32,
+                            hidden_channels=hidden_channels,
                             out_channels=opt.input_nc,
                             pool_ratios=pool_ratios,
-                            depth=4,
+                            depth=len(pool_ratios),
+                            sum_res=True, act=F.relu,
+                            nclasses=opt.nclasses,
+                            mode=opt.mode)
+        elif opt.arch == 'mesh_udnet':
+            from .ud_net import GraphUNet
+            pool_ratios = [380, 160, 80, 16]
+            hidden_channels = [32, 32, 32, 32, 32]
+            net = GraphUNet(in_channels=opt.input_nc,
+                            hidden_channels=hidden_channels,
+                            out_channels=opt.input_nc,
+                            pool_ratios=pool_ratios,
+                            depth=len(pool_ratios),
                             sum_res=True, act=F.relu,
                             nclasses=opt.nclasses,
                             mode=opt.mode)
@@ -134,6 +145,36 @@ class Model(BaseModel):
                            hidden_channels=opt.ncf,
                            pool_ratios=pool_ratios,
                            sum_res=True, act=F.relu)
+        elif opt.arch == 'mesh_aeglb' and opt.norm == 'batch':
+            from .autoencoder_glb import BaseCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = BaseCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch in ['mesh_aec1'] and opt.norm == 'batch':
+            from .ae_net1 import BaseCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = BaseCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch in ['mesh_aec2'] and opt.norm == 'batch':
+            from .ae_net2 import BaseCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = BaseCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu)
+        elif opt.arch in ['mesh_aec3'] and opt.norm == 'batch':
+            from .ae_net3 import BaseCNet
+            pool_ratios = [0.8, 0.6, 0.4, 0.24]
+            net = BaseCNet(in_channels=opt.input_nc,
+                           hidden_channels=opt.ncf,
+                           nclasses=opt.nclasses,
+                           pool_ratios=pool_ratios,
+                           sum_res=True, act=F.relu,
+                           mode=opt.mode)
         elif opt.arch == 'mesh_aept' and opt.norm == 'batch':
             from .ae_nets_pt import BaseCNet
             pool_ratios = [0.8, 0.6, 0.4, 0.24]
