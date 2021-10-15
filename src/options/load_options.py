@@ -3,7 +3,10 @@ def load_model_opt(path, opt=None):
         opt = type('Opt', (object,), {})()
     load_list = {'arch': str, 'fc_n': int, 'input_nc': int,
                  'mode': str, 'ncf': list, 'neigbs': int,
-                 'ninput_edges': int, 'nclasses': int}
+                 'ninput_edges': int, 'nclasses': int,
+                 'aug_method': str, 'num_aug': int,
+                 'scale_verts': bool, 'flip_edges': float,
+                 'slide_verts': float}
     with open(path) as f:
         lines = f.readlines()
         for line in lines[1:-1]:
