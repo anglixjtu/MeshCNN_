@@ -8,6 +8,31 @@ from torch_geometric.transforms import (NormalizeScale,
                                         Compose)
 
 
+def set_transforms11(phase, opt, mean=0, std=1, ninput_channels=5):
+
+    graph_transformer = \
+        [NormalizeScale(),
+         ConstructEdgeGraph(ninput_edges=opt.ninput_edges,
+                            num_aug=opt.num_aug,
+                            neigbs=opt.neigbs,
+                            scale_verts=opt.scale_verts,
+                            flip_edges=opt.flip_edges,
+                            slide_verts=opt.slide_verts,
+                            len_feature=opt.len_feature,
+                            input_nc=opt.input_nc)]
+    general_transformer = [NormalizeScale(),
+                           SetX(opt.input_nc)]
+
+    if phase in ['compute_mean_std']:
+        return Compose(graph_transformer + general_transformer +
+                       [SetY(mode=opt.mode, input_nc=opt.input_nc)])
+    else:
+        return Compose(graph_transformer +
+                       general_transformer +
+                       [NormalizeFeature(mean, std, ninput_channels)] +
+                       [SetY(mode=opt.mode, input_nc=opt.input_nc)])
+
+
 def set_transforms10(phase, opt, mean=0, std=1, ninput_channels=5):
 
     if phase in 'train':
@@ -365,7 +390,7 @@ def set_transforms2(phase, opt, mean=0, std=1, ninput_channels=5):
                        [NormalizeFeature(mean, std, ninput_channels)])
 
 
-def set_transforms1(phase, opt, mean=0, std=1, ninput_channels=5):
+'''def set_transforms1(phase, opt, mean=0, std=1, ninput_channels=5):
 
     if phase in 'train':
         graph_transformer = \
@@ -397,7 +422,32 @@ def set_transforms1(phase, opt, mean=0, std=1, ninput_channels=5):
     else:
         return Compose(graph_transformer +
                        general_transformer +
-                       [NormalizeFeature(mean, std, ninput_channels)])
+                       [NormalizeFeature(mean, std, ninput_channels)])'''
+
+
+def set_transforms1(phase, opt, mean=0, std=1, ninput_channels=5):
+
+    graph_transformer = \
+        [NormalizeScale(),
+         ConstructEdgeGraph(ninput_edges=opt.ninput_edges,
+                            num_aug=opt.num_aug,
+                            neigbs=opt.neigbs,
+                            scale_verts=opt.scale_verts,
+                            flip_edges=opt.flip_edges,
+                            slide_verts=opt.slide_verts,
+                            len_feature=opt.len_feature,
+                            input_nc=opt.input_nc)]
+    general_transformer = [NormalizeScale(),
+                           SetX(opt.input_nc)]
+
+    if phase in ['compute_mean_std']:
+        return Compose(graph_transformer + general_transformer +
+                       [SetY(mode=opt.mode, input_nc=opt.input_nc)])
+    else:
+        return Compose(graph_transformer +
+                       general_transformer +
+                       [NormalizeFeature(mean, std, ninput_channels)] +
+                       [SetY(mode=opt.mode, input_nc=opt.input_nc)])
 
 
 def set_transforms0(phase, opt, mean=0, std=1, ninput_channels=5):
