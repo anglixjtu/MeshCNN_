@@ -25,7 +25,8 @@ class BaseOptions:
                                  help='method for downsample mesh')
         self.parser.add_argument('--mode', choices={'classification',
                                                     'autoencoder',
-                                                    'autoencoder_pt'},
+                                                    'autoencoder_pt',
+                                                    'autoencoder_glb'},
                                  default='classification')
         self.parser.add_argument('--ninput_edges',
                                  type=int, default=750,
