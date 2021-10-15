@@ -92,6 +92,7 @@ class MeshDataset(Dataset):
 
         # mesh_in = self.load_mesh(path)
         mesh_in = read_obj(path)
+        # print(path)
 
         '''mesh_in = Rotate(90, 0)(mesh_in)
         mesh_in = Rotate(90, 1)(mesh_in)

@@ -38,7 +38,7 @@ def create_dataloader(opt, phase, namelist=None):
                                                     namelist_file, ['test'])
         shuffle = False
         batch_size = 1
-        num_workers = 1
+        num_workers = 0
     elif phase in ['database']:
         raw_file_names = util.util.parse_file_names(root, namelist,
                                                     namelist_file, opt.set)
