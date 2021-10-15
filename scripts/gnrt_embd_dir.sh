@@ -4,10 +4,10 @@
 ## set pooling = global_mean_pool if which_layer = encoderx
 ## else pooling = None if which_layer = gb_pool
 python generate_embedding_db.py \
---dataroot G:/dataset/MCB_B \
---name fix_aept5_aug8 \
---input_nc 5 \
---set test \
+--dataroot empty \
+--name fix_aept7_aug11 \
+--input_nc 11 \
+--set train test \
 --which_epoch latest \
 --which_layer gb_pool \
 --pooling None \
