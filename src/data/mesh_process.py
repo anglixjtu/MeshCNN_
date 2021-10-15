@@ -1,5 +1,6 @@
 import numpy as np
 import time
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def init_mesh_data():
@@ -348,8 +349,8 @@ def compute_face_areas(mesh, faces):
 
 # Data augmentation methods
 def augmentation(mesh, faces=None,
-                scale_verts_f=False,
-                flip_edges_f=0.2):
+                 scale_verts_f=False,
+                 flip_edges_f=0.2):
     if scale_verts_f:
         scale_verts(mesh)
     if flip_edges_f > -1:
@@ -497,24 +498,62 @@ def set_edge_lengths(mesh, edge_points=None):
 
 
 def extract_features(mesh, input_nc):
-    if input_nc in [6, 7]:
-        extractors = [dihedral_angle_areas]
-    elif input_nc in [5, 8, 9]:
+    # TODO: clean this
+    # extract mesh features
+    if input_nc in [7]:  # 7 channels
+        extractors = [dihedral_angle_cos,
+                      three_edge_lengths]
+    elif input_nc in [6, 5, 8, 10, 16]:  # 5 channels
         extractors = [dihedral_angle,
                       symmetric_opposite_angles,
                       symmetric_ratios]
+    elif input_nc in [9]:  # 6 channels
+        extractors = [dihedral_angle_cos,
+                      five_edge_lengths]
+
     features = []
     edge_points = get_edge_points(mesh)
     set_edge_lengths(mesh, edge_points)
-    with np.errstate(divide='raise'):
-        try:
-            for extractor in extractors:
-                feature = extractor(mesh, edge_points)
-                features.append(feature)
-            return np.concatenate(features, axis=0)
-        except Exception as e:
-            print(e)
-            raise ValueError(mesh.filename, 'bad features')
+    for extractor in extractors:
+        feature = extractor(mesh, edge_points)
+        features.append(feature)
+    edge_features = np.concatenate(features, axis=0)
+    edge_features = edge_features.T
+
+    # compute global features
+    edge_pos = compute_edge_pos(mesh.edges, mesh.vs)
+    mesh.pos = edge_pos
+
+    if input_nc in [7, 9]:
+        extractors = [center_distance,
+                      farthest_distance,
+                      mean_pair_sine]
+    for extractor in extractors:
+        feature = extractor(mesh.pos, edge_features)
+        edge_features = np.concatenate((edge_features, feature), axis=1)
+
+    if input_nc in [6, 10, 16]:
+        origin = np.mean(edge_pos, 0)
+        edge_pos_centered = edge_pos - origin
+        edge_dist = np.sqrt(edge_pos_centered[:, 0:1] ** 2 +
+                            edge_pos_centered[:, 1:2] ** 2 +
+                            edge_pos_centered[:, 2:3] ** 2)
+
+        '''from tests.test_tools import show_color_pt
+            show_color_pt(mesh_data.pos, edge_dist)'''
+        edge_features = np.concatenate((edge_features,
+                                        edge_dist), 1)
+
+    if input_nc in [10, 16]:
+        nda = get_neighbor_dist_angle(edge_pos_centered, r=0.3)
+        edge_features = np.concatenate((edge_features,
+                                        nda), 1)
+    if input_nc in [16]:
+        angles = get_angles(edge_pos_centered)
+        edge_features = np.concatenate((edge_features,
+                                        angles), 1)
+
+    return edge_features
 
 
 def extract_features_3(mesh, extractors):
@@ -538,6 +577,13 @@ def dihedral_angle(mesh, edge_points):
     dot = np.sum(normals_a * normals_b, axis=1).clip(-1, 1)
     angles = np.expand_dims(np.pi - np.arccos(dot), axis=0)
     return angles
+
+
+def dihedral_angle_cos(mesh, edge_points):
+    normals_a = get_normals(mesh, edge_points, 0)
+    normals_b = get_normals(mesh, edge_points, 3)
+    dot = np.sum(normals_a * normals_b, axis=1).clip(-1, 1)
+    return np.expand_dims(dot, axis=0)
 
 
 def dihedral_angle_areas(mesh, edge_points):
@@ -574,6 +620,46 @@ def symmetric_ratios(mesh, edge_points):
     ratios = np.concatenate((np.expand_dims(ratios_a, 0),
                              np.expand_dims(ratios_b, 0)), axis=0)
     return np.sort(ratios, axis=0)
+
+
+def five_edge_lengths(mesh, edge_points):
+    # get edge points
+    point_e1 = mesh.vs[edge_points[:, 0]]
+    point_e2 = mesh.vs[edge_points[:, 1]]
+    # get side points
+    point_s1 = mesh.vs[edge_points[:, 2]]
+    point_s2 = mesh.vs[edge_points[:, 3]]
+    # get lengths
+    len12 = np.linalg.norm(point_e1 - point_e2, ord=2, axis=1)
+    side1_len1 = np.linalg.norm(point_s1 - point_e1, ord=2, axis=1)
+    side1_len2 = np.linalg.norm(point_s1 - point_e2, ord=2, axis=1)
+    side2_len1 = np.linalg.norm(point_s2 - point_e1, ord=2, axis=1)
+    side2_len2 = np.linalg.norm(point_s2 - point_e2, ord=2, axis=1)
+    lens = np.concatenate((np.expand_dims(side1_len1, 0),
+                           np.expand_dims(side1_len2, 0),
+                           np.expand_dims(len12, 0),
+                           np.expand_dims(side2_len1, 0),
+                           np.expand_dims(side2_len2, 0)), axis=0)
+    return lens
+
+
+def three_edge_lengths(mesh, edge_points):
+    # get edge points
+    point_e1 = mesh.vs[edge_points[:, 0]]
+    point_e2 = mesh.vs[edge_points[:, 1]]
+    # get side points
+    point_s1 = mesh.vs[edge_points[:, 2]]
+    point_s2 = mesh.vs[edge_points[:, 3]]
+    # get lengths
+    len12 = np.linalg.norm(point_e1 - point_e2, ord=2, axis=1)
+    side1_len = 0.5 * (np.linalg.norm(point_s1 - point_e1, ord=2, axis=1) +
+                       np.linalg.norm(point_s1 - point_e2, ord=2, axis=1))
+    side2_len = 0.5 * (np.linalg.norm(point_s2 - point_e1, ord=2, axis=1) +
+                       np.linalg.norm(point_s2 - point_e2, ord=2, axis=1))
+    lens = np.concatenate((np.expand_dims(side1_len, 0),
+                           np.expand_dims(len12, 0),
+                           np.expand_dims(side2_len, 0)), axis=0)
+    return lens
 
 
 def get_edge_points(mesh):
@@ -689,3 +775,94 @@ def compute_edge_pos(edges, vertices):
         pos_b = vertices[edge[1], :]
         pos[i, :] = np.array((pos_a + pos_b) / 2.)
     return pos
+
+
+def cosine_angle(p0, p1, p2):
+    a = p1 - p0
+    b = p2 - p0
+    return np.dot(a, b)/((np.linalg.norm(a)*np.linalg.norm(b))+0.001)
+
+
+def get_neighbor_dist_angle(pos, r):
+
+    nda = np.zeros((len(pos), 4))
+    for i in range(len(pos)):
+        pi = pos[i, :]
+
+        # compute si
+        pi_norm = np.linalg.norm(pi, ord=2)
+        si = (r + pi_norm) * pi / pi_norm
+
+        # find neighboring points
+        dist = np.linalg.norm(pos-pi, ord=2, axis=1)
+        neighbors = pos[dist <= r, :]
+
+        # compute mi as the centroid of neighboring points
+        mi = np.mean(neighbors, 0)
+
+        # dsmi
+        nda[i, 0] = np.linalg.norm(mi-si, ord=2)
+        # dpmi
+        nda[i, 1] = np.linalg.norm(mi-pi, ord=2)
+        # cos(\alpha_i)
+        nda[i, 2] = cosine_angle(mi, pi, si)
+        # cos(\beta_i)
+        nda[i, 3] = cosine_angle(si, pi, mi)
+
+    return nda
+
+
+def get_angles(pos):
+    angles = np.zeros((len(pos), 6))
+    # compute average <Pi,O,Pj>
+    cos_angles = cosine_similarity(pos)
+    angles[:, 0] = np.mean(cos_angles, axis=1)
+
+    # compute average  <Pi,O,Pj> in the same hemisphere
+    cos_angles_same = cos_angles.copy()
+    cos_angles_same[cos_angles <= 0] = 1
+    angles[:, 1] = np.mean(cos_angles_same, axis=1)
+
+    # compute average  <Pi,O,Pj> in the opposite hemisphere
+    cos_angles_opst = cos_angles.copy()
+    cos_angles_opst[cos_angles > 0] = 1
+    angles[:, 2] = np.mean(cos_angles_opst, axis=1)
+
+    # compute <O,Pi,Pj>
+    for i in range(len(pos)):
+        # <O,Pi,Pj>
+        pi = pos[i:i+1, :]
+        cos_angle_i = cosine_similarity(pi, pos-pi)
+        angles[i, 3] = np.mean(cos_angle_i, axis=1)
+
+        # <O,Pi,Pj> in the same hemisphere
+        cos_angle_i_same = cos_angle_i.copy()
+        cos_angle_i_same[cos_angle_i <= 0] = 1
+        angles[i, 4] = np.mean(cos_angle_i_same, axis=1)
+
+        # <O,Pi,Pj> in the opposite hemisphere
+        cos_angle_i_opst = cos_angle_i.copy()
+        cos_angle_i_opst[cos_angle_i > 0] = 1
+        angles[i, 5] = np.mean(cos_angle_i_opst, axis=1)
+    return angles
+
+
+def center_distance(pos, *args):
+    return np.linalg.norm(pos, ord=2, axis=1, keepdims=True)
+
+
+def farthest_distance(pos, *args):
+    dist = np.linalg.norm(pos, ord=2, axis=1, keepdims=True)
+    farthest_p = pos[np.argmax(dist), :]
+    return np.linalg.norm(pos-farthest_p, ord=2, axis=1, keepdims=True)
+
+
+def mean_pair_sine(pos, features):
+    # compute weights
+    edge_lens = np.sum(features[:, 1:], axis=1, keepdims=True)
+    weights = edge_lens / np.sum(edge_lens)
+    # compute cos<Pi,O,Pj
+    cos_angles = cosine_similarity(pos)
+    sin2_angles = 1 - cos_angles**2   # sin**2
+    weighted_mean = np.sum(sin2_angles*weights, axis=0, keepdims=True)
+    return weighted_mean.reshape(-1, 1)
