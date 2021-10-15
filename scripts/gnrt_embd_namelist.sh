@@ -7,9 +7,7 @@ python generate_embedding_db.py \
 --dataroot G:/dataset/MCB_B/ \
 --namelist_file G:/dataset/MCB_B/namelist/mcbb_5c1000s.json \
 --name fix_aept7_aug11 \
---aug_method 11 \
---input_nc 16 \
---set train test \
+--set test \
 --which_epoch latest \
 --which_layer gb_pool \
 --pooling None \

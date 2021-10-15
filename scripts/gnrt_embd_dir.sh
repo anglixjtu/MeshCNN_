@@ -6,7 +6,6 @@
 python generate_embedding_db.py \
 --dataroot empty \
 --name fix_aept7_aug11 \
---input_nc 11 \
 --set train test \
 --which_epoch latest \
 --which_layer gb_pool \
