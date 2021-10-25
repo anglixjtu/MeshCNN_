@@ -5,17 +5,12 @@ from .mesh_process import (init_mesh_data,
                            build_gemm,
                            post_augmentation,
                            extract_features,
-                           compute_edge_pos,
-                           get_edge_connection,
-                           get_neighbor_dist_angle,
-                           get_angles)
+                           get_edge_connection,)
 from src import util
 import torch
 from torch_geometric.nn import knn_graph
 import numpy as np
 from torch_geometric.data import Data
-import numbers
-import random
 import math
 
 from torch_geometric.transforms import LinearTransformation
@@ -50,7 +45,10 @@ class SampleMesh(object):
 
 class ConstructEdgeGraph(object):
     """ Construct the edge graph from a mesh.
-        Data.x is the 5-channel edge features.
+        Data.x is the edge features.
+        Data.edge_index is the connection between edges.
+        Data.pos is the position of edges.
+        Data.y is the postion of randomly sampled points on the mesh.
         num_aug: # of augmentation files
         neigbs: method for finding neighboring edges(nodes).
                 if neigbs=0: 1-ring neighbors
@@ -59,7 +57,7 @@ class ConstructEdgeGraph(object):
     Args:
         mesh_tm: input mesh data in trimesh structure
     Return:
-        edge_graph: pytorch-geometric graph data for edges(mesh)
+        edge_graph(Data): pytorch-geometric graph data for edges(mesh)
 
     """
 
@@ -78,43 +76,39 @@ class ConstructEdgeGraph(object):
         self.len_feature = len_feature
         self.input_nc = input_nc
 
-    def tm_load(mesh_in, mesh_data):
-        import trimesh as tm
-        faces = mesh_in.faces
-        mesh_data.vs = mesh_in.vertices
-        y = mesh_in.sample(4096)
+    def sample_y(mesh_in, n=2048):
+        y = SamplePoints(n)(mesh_in).y.numpy()
         y -= np.mean(y, 0)
-        y /= np.sqrt(np.std(y, 0))
-        selected = np.random.permutation(4096)
-        y = y[selected[:2048], :]
+        y /= np.abs(y).max()  # np.sqrt(np.std(y, 0))
+        y *= 0.999999
+        return y
 
     def __call__(self, mesh_in):
         mesh_data = init_mesh_data()
 
         faces = mesh_in.face.numpy().transpose()
         mesh_data.vs = mesh_in.pos.numpy()
-        y = SamplePoints(4096)(mesh_in).y.numpy()
-        y -= np.mean(y, 0)
-        y /= np.abs(y).max()  # np.sqrt(np.std(y, 0))
-        y *= 0.999999
-        selected = np.random.permutation(4096)
-        y = y[selected[:2048], :]
 
         # remove non-manifold vertices and edges
         faces, face_areas = remove_non_manifolds(mesh_data, faces)
         faces = remove_isolated_vertices(mesh_data, faces)
 
-        # feature augmentation
+        # mesh augmentation from MeshCNN including scale_verts, flip_edges
+        # and slide_verts
         if self.num_aug > 1:
             faces = augmentation(mesh_data, faces,
                                  self.scale_verts,
                                  self.flip_edges)
+
+        # Compute 4 one-ring neighbors for each edge. From MeshCNN.
         build_gemm(mesh_data, faces, face_areas)
 
+        # mesh augmentation from MeshCNN including scale_verts, flip_edges
+        # and slide_verts
         if self.num_aug > 1:
             post_augmentation(mesh_data, self.slide_verts)
 
-        # extract 5-/6-channel features
+        # extract edge features by Ang Li
         mesh_data.features = extract_features(mesh_data, self.input_nc)
 
         # resize the number of input edges
@@ -151,7 +145,7 @@ class ConstructEdgeGraph(object):
         # convert edge features and connections to pytorch-geometric data
         edge_features = torch.tensor(edge_features,
                                      dtype=torch.float)
-
+        y = self.sample_y(mesh_in)
         y = torch.tensor(y, dtype=torch.float)
 
         graph_data = Data(x=edge_features, edge_index=edge_connections,
@@ -205,7 +199,8 @@ class SetX(object):
 
 
 class SamplePoints(object):
-    r"""Uniformly samples :obj:`num` points on the mesh faces according to
+    r"""From torch-geometic.
+    Uniformly samples :obj:`num` points on the mesh faces according to
     their face area.
 
     Args:
@@ -303,7 +298,8 @@ class SetY(object):
 
 
 class Rotate(object):
-    r"""Rotates node positions around a specific axis by a randomly sampled
+    r"""From Torch-geometric.
+    Rotates node positions around a specific axis by a randomly sampled
     factor within a given interval.
 
     Args:

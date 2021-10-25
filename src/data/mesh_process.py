@@ -1,9 +1,14 @@
+# Mesh process methods are modified from MeshCNN (https://github.com/ranahanocka/MeshCNN/)
+
 import numpy as np
 import time
 from sklearn.metrics.pairwise import cosine_similarity
 
 
 def init_mesh_data():
+    """ Initialize mesh data structure used for computing edge features.
+    From MeshCNN.
+    """
     class MeshPrep:
         def __getitem__(self, item):
             return eval('self.' + item)
@@ -21,135 +26,6 @@ def init_mesh_data():
     return mesh_data
 
 
-def compute_features(mesh_tm, opt):
-    """compute 5-channel input feature from mesh"""
-
-    class MeshPrep:
-        def __getitem__(self, item):
-            return eval('self.' + item)
-
-    mesh_data = MeshPrep()
-    mesh_data.vs = mesh_data.edges = None
-    mesh_data.gemm_edges = mesh_data.sides = None
-    mesh_data.edges_count = None
-    mesh_data.ve = None
-    mesh_data.v_mask = None
-    mesh_data.filename = 'unknown'
-    mesh_data.edge_lengths = None
-    mesh_data.edge_areas = []
-    mesh_data.pos = None
-
-    mesh_out = mesh_tm
-    faces = mesh_out.faces
-    mesh_data.vs = mesh_out.vertices
-    # remove non-manifold vertices and edges
-    faces, face_areas = remove_non_manifolds(mesh_data, faces)
-    faces = remove_isolated_vertices(mesh_data, faces)
-
-    if opt.num_aug > 1:
-        # TODO: check the right augmentations for mechanical data
-        faces = augmentation(mesh_data, opt, faces)
-    build_gemm(mesh_data, faces, face_areas)
-
-    if opt.num_aug > 1:
-        post_augmentation(mesh_data, opt)
-
-    mesh_data.features = extract_features(mesh_data)
-    mesh_data.pos = compute_edge_pos(mesh_data.edges, mesh_data.vs)
-
-    return mesh_out, mesh_data
-
-
-def sample_and_compute_features(mesh_tm, opt):
-    # by Ang Li
-
-    class MeshPrep:
-        def __getitem__(self, item):
-            return eval('self.' + item)
-
-    mesh_data = MeshPrep()
-    mesh_data.vs = mesh_data.edges = None
-    mesh_data.gemm_edges = mesh_data.sides = None
-    mesh_data.edges_count = None
-    mesh_data.ve = None
-    mesh_data.v_mask = None
-    mesh_data.filename = 'unknown'
-    mesh_data.edge_lengths = None
-    mesh_data.edge_areas = []
-
-    start_t = time.time()
-    if opt.sample_mesh == 'trimesh':
-        mesh_out, faces, face_areas = sample_mesh_tm(mesh_tm,
-                                                     mesh_data,
-                                                     opt.ninput_edges,
-                                                     opt.sample_mesh)
-    elif opt.sample_mesh == 'pyvista':
-        mesh_out, faces, face_areas = sample_mesh(mesh_tm,
-                                                  mesh_data,
-                                                  opt.ninput_edges,
-                                                  opt.sample_mesh)
-    else:
-        mesh_out = mesh_tm
-        faces = mesh_out.faces
-        mesh_data.vs = mesh_out.vertices
-        # remove non-manifold vertices and edges
-        faces, face_areas = remove_non_manifolds(mesh_data, faces)
-        faces = remove_isolated_vertices(mesh_data, faces)
-        # TODO: clean this part
-
-    if opt.num_aug > 1:
-        # TODO: check the right augmentations for mechanical data
-        faces = augmentation(mesh_data, opt, faces)
-    build_gemm(mesh_data, faces, face_areas)
-
-    # remove edges until the number of edges is less than the threshold
-    while (len(mesh_data.edges) > opt.ninput_edges) and\
-          (opt.sample_mesh in ['trimesh', 'pyvista']):
-        mesh_data.edge_areas = []
-        mesh_data.edge_lengths = None
-        mesh_data.edges = None
-        mesh_data.gemm_edges = mesh_data.sides = None
-        mesh_data.edges_count = None
-        mesh_data.ve = None
-
-        if opt.sample_mesh == 'trimesh':
-            mesh_out, faces, face_areas = sample_mesh_tm(mesh_out,
-                                                         mesh_data,
-                                                         opt.ninput_edges,
-                                                         opt.sample_mesh,
-                                                         rate=0.01)
-        elif opt.sample_mesh == 'pyvista':
-            mesh_out, faces, face_areas = sample_mesh(mesh_out,
-                                                      mesh_data,
-                                                      opt.ninput_edges,
-                                                      opt.sample_mesh,
-                                                      rate=0.01)
-        else:
-            mesh_out = mesh_tm
-            faces = mesh_out.faces
-            mesh_data.vs = mesh_out.vertices
-            # remove non-manifold vertices and edges
-            faces, face_areas = remove_non_manifolds(mesh_data, faces)
-            faces = remove_isolated_vertices(mesh_data, faces)
-
-        if opt.num_aug > 1:
-            faces = augmentation(mesh_data, opt, faces)
-        build_gemm(mesh_data, faces, face_areas)
-
-    end_t = time.time()
-    opt.t_pp += end_t - start_t
-
-    if opt.num_aug > 1:
-        post_augmentation(mesh_data, opt)
-
-    start_t = time.time()
-    mesh_data.features = extract_features(mesh_data)
-    end_t = time.time()
-    opt.t_ef += end_t - start_t
-
-    return mesh_out, mesh_data
-
-
 def get_edge_connection(gemm_edges):
     sz = len(gemm_edges)
     edge_indices = np.arange(sz)
@@ -164,71 +40,11 @@ def get_edge_connection(gemm_edges):
     return edge_connection
 
 
-# Preprocess methods by Ang Li
-def sample_mesh(mesh, mesh_data, ninput_edges,
-                sample_mesh='trimesh', rate=None):
-    nfaces_target = ninput_edges / 1.5
-    nfaces = len(mesh.faces)
-
-    if rate is None:
-        # Subdivide the mesh if the number of faces is less than a threshold
-        if (nfaces < nfaces_target) and (rate is None):
-            nsub = max(1, round((nfaces_target/nfaces)**0.25))
-            for i in range(nsub):
-                mesh = mesh.subdivide()
-            nfaces = len(mesh.faces)
-
-        # convert from trimesh to pyvista
-        if sample_mesh == 'pyvista':
-            import pyvista as pv
-            vertices = mesh.vertices
-            faces = np.concatenate((np.ones((len(mesh.faces), 1))*3,
-                                    mesh.faces), axis=1)
-            faces = np.hstack(faces)
-            mesh = pv.PolyData(vertices, faces.astype(np.int64))
-            # Decimate the mesh if #faces is larger than a threshold
-            if (nfaces > nfaces_target):
-                rate = 1.0 - nfaces_target/nfaces
-                mesh = mesh.decimate(rate)
-    else:
-        mesh = mesh.decimate(rate)
-
-    faces = mesh.faces.reshape(-1, 4)[:, 1:4]
-    mesh_data.vs = np.array(mesh.points)
-    # remove non-manifold vertices and edges
-    faces, face_areas = remove_non_manifolds(mesh_data, faces)
-    faces = remove_isolated_vertices(mesh_data, faces)
-    return mesh, faces, face_areas
-
-
-def sample_mesh_tm(mesh, mesh_data, ninput_edges,
-                   sample_mesh=True, rate=None):
-    nfaces_target = ninput_edges / 1.5
-    nfaces = len(mesh.faces)
-
-    if rate is None:
-        # Subdivide the mesh if the number of faces is less than a threshold
-        if (nfaces < nfaces_target) and (rate is None) and (sample_mesh):
-            nsub = max(1, round((nfaces_target/nfaces)**0.25))
-            for i in range(nsub):
-                mesh = mesh.subdivide()
-            nfaces = len(mesh.faces)
-
-        # Decimate the mesh if the number of faces is larger than a threshold
-        if (nfaces > nfaces_target) and (sample_mesh):
-            mesh = mesh.simplify_quadratic_decimation(nfaces_target)
-    else:
-        mesh = mesh.simplify_quadratic_decimation(round(nfaces*(1-rate)))
-
-    faces = mesh.faces
-    mesh_data.vs = mesh.vertices
-    # remove non-manifold vertices and edges
-    faces, face_areas = remove_non_manifolds(mesh_data, faces)
-    faces = remove_isolated_vertices(mesh_data, faces)
-    return mesh, faces, face_areas
-
-
 def remove_non_manifolds(mesh, faces):
+    """ Remove non-manifolds in the mesh. The results are not always
+    perfect non-manifolds though.
+    From MeshCNN.
+    """
     mesh.ve = [[] for _ in mesh.vs]
     edges_set = set()
     mask = np.ones(len(faces), dtype=bool)
@@ -257,7 +73,8 @@ def remove_non_manifolds(mesh, faces):
 
 
 def remove_isolated_vertices(mesh, faces):
-    """Written by Ang Li"""
+    """ Remove isolated vertices in the mesh which has no edges connects to.
+    Written by Ang Li"""
     v_in_faces = np.unique(faces)
     if len(v_in_faces) < len(mesh.vs):
         v_without_edges = set(range(len(mesh.vs))) - set(v_in_faces)
@@ -270,7 +87,7 @@ def remove_isolated_vertices(mesh, faces):
 
 
 def build_gemm(mesh, faces, face_areas):
-    """
+    """ Compute 4 one-ring neighbors for each edge. From MeshCNN.
     gemm_edges: array (#E x 4) of the 4 one-ring neighbors for each edge
     sides: array (#E x 4) indices (values of: 0,1,2,3) indicating
     where an edge is in the gemm_edge entry of the 4 neighboring edges
@@ -338,6 +155,8 @@ def compute_face_normals_and_areas(mesh, faces):
 
 
 def compute_face_areas(mesh, faces):
+    """ Compute areas of the faces in the mesh.
+    """
     face_normals = np.cross(mesh.vs[faces[:, 1]] - mesh.vs[faces[:, 0]],
                             mesh.vs[faces[:, 2]] - mesh.vs[faces[:, 1]])
     face_areas = np.sqrt((face_normals ** 2).sum(axis=1))
@@ -351,6 +170,10 @@ def compute_face_areas(mesh, faces):
 def augmentation(mesh, faces=None,
                  scale_verts_f=False,
                  flip_edges_f=0.2):
+    """
+    Mesh augmentation including scale_verts, flip_edges.
+    From MeshCNN
+    """
     if scale_verts_f:
         scale_verts(mesh)
     if flip_edges_f > -1:
@@ -359,11 +182,19 @@ def augmentation(mesh, faces=None,
 
 
 def post_augmentation(mesh, slide_verts_f=0.2):
+    """
+    Mesh augmentation including slide_verts.
+    From MeshCNN
+    """
     if slide_verts_f > -1:
         slide_verts(mesh, slide_verts_f)
 
 
 def slide_verts(mesh, prct):
+    """
+    Mesh augmentation.
+    From MeshCNN
+    """
     edge_points = get_edge_points(mesh)
     dihedral = dihedral_angle(mesh, edge_points).squeeze()
     thr = np.mean(dihedral) + np.std(dihedral)
@@ -388,6 +219,10 @@ def slide_verts(mesh, prct):
 
 
 def scale_verts(mesh, mean=1, var=0.1):
+    """
+    Mesh augmentation.
+    From MeshCNN
+    """
     for i in range(mesh.vs.shape[1]):
         mesh.vs[:, i] = mesh.vs[:, i] * np.random.normal(mean, var)
 
@@ -409,6 +244,10 @@ def angles_from_faces(mesh, edge_faces, faces):
 
 
 def flip_edges(mesh, prct, faces):
+    """
+    Mesh augmentation.
+    From MeshCNN
+    """
     edge_count, edge_faces, edges_dict = get_edge_faces(faces)
     dihedral = angles_from_faces(mesh, edge_faces[:, 2:], faces)
     edges2flip = np.random.permutation(edge_count)
@@ -498,6 +337,25 @@ def set_edge_lengths(mesh, edge_points=None):
 
 
 def extract_features(mesh, input_nc):
+    """ Extract edge features. By Ang Li.
+    input_nc: =7, 4 local feat: cos(dihedral_angle), three edge lengths
+                  3 global feat: center dist, farthest dist, mean pair angle
+              =9, 4 local feat: cos(dihedral_angle), five edge lengths
+                  3 global feat: center dist, farthest dist, mean pair angle
+              =5, 5 local feat from MeshCNN: dihedral angle, 2 angles,
+                                             2 edge ratios
+              =6, 5 local feat from MeshCNN
+                  1 center distance
+              =8, 5 local feat from MeshCNN
+                  3 edge pos
+              =10, 5 local feat from MeshCNN
+                   1 center distance
+                   4 distance and angle in a neighbor sphere
+              =16, 5 local feat from MeshCNN
+                   1 center distance
+                   4 distances and angles in a neighbor sphere
+                   6 mean pair angles
+    """
     # TODO: clean this
     # extract mesh features
     if input_nc in [7]:  # 7 channels
@@ -507,7 +365,7 @@ def extract_features(mesh, input_nc):
         extractors = [dihedral_angle,
                       symmetric_opposite_angles,
                       symmetric_ratios]
-    elif input_nc in [9]:  # 6 channels
+    elif input_nc in [9]:
         extractors = [dihedral_angle_cos,
                       five_edge_lengths]
 
@@ -555,20 +413,9 @@ def extract_features(mesh, input_nc):
 
     return edge_features
 
-
-def extract_features_3(mesh, extractors):
-    features = []
-    edge_points = get_edge_points(mesh)
-    set_edge_lengths(mesh, edge_points)
-    with np.errstate(divide='raise'):
-        try:
-            for extractor in extractors:
-                feature = extractor(mesh, edge_points)
-                features.append(feature)
-            return np.concatenate(features, axis=0)
-        except Exception as e:
-            print(e)
-            raise ValueError(mesh.filename, 'bad features')
+#######################################
+# Methods used to extract features
+#######################################
 
 
 def dihedral_angle(mesh, edge_points):
