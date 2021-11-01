@@ -76,7 +76,7 @@ class ConstructEdgeGraph(object):
         self.len_feature = len_feature
         self.input_nc = input_nc
 
-    def sample_y(mesh_in, n=2048):
+    def sample_y(self, mesh_in, n=2048):
         y = SamplePoints(n)(mesh_in).y.numpy()
         y -= np.mean(y, 0)
         y /= np.abs(y).max()  # np.sqrt(np.std(y, 0))
@@ -110,6 +110,7 @@ class ConstructEdgeGraph(object):
 
         # extract edge features by Ang Li
         mesh_data.features = extract_features(mesh_data, self.input_nc)
+        # features for connections
 
         # resize the number of input edges
         if mesh_data.features.shape[0] < self.ninput_edges:
