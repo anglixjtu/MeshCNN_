@@ -3,9 +3,10 @@
 ## training the autoencoder network
 python train.py \
 --dataroot data/mcbb_tiny \
---name fix_tiny_aec7_aug9 \
+--name fix_tiny_aec7_aug4 \
+--ncf 32 64 64 256 512 \
 --mode autoencoder \
---aug_method 9 \
+--aug_method 4 \
 --niter_decay 100 \
 --niter 100 \
 --input_nc 7 \
