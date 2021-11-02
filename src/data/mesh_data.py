@@ -42,7 +42,10 @@ class MeshDataset(Dataset):
 
     @processed_file_names.setter
     def processed_file_names(self, value):
-        self._processed_file_names = value
+        self._processed_file_names = []
+        for path in value:
+            save_path = os.path.splitext(path)[0] + '.pt'
+            self._processed_file_names.append(save_path)
 
     def generate_paths(self):
         for i, raw_file_name in enumerate(self.raw_file_names):
@@ -66,12 +69,11 @@ class MeshDataset(Dataset):
                 mesh = self.load_mesh(raw_path)
 
                 if self.pre_transform is not None:
-                    mesh = self.pre_transform(mesh)
+                    graph = self.pre_transform(mesh)
 
                 save_dir = os.path.split(save_path)[0]
                 util.util.mkdir(save_dir)
-                mesh.export(save_path)
-        # TODO: do not save processed files in disk
+                torch.save(graph, save_path)
 
     def len(self):
         return len(self.processed_file_names)
@@ -90,8 +92,10 @@ class MeshDataset(Dataset):
 
         path = self.pp_paths[idx]
 
-        # mesh_in = self.load_mesh(path)
-        mesh_in = read_obj(path)
+        mesh_in = torch.load(path)
+
+        #mesh_in = self.load_mesh(path)
+        # mesh_in = read_obj(path)
         # print(path)
 
         '''mesh_in = Rotate(90, 0)(mesh_in)

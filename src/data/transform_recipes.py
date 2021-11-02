@@ -8,6 +8,18 @@ from torch_geometric.transforms import (NormalizeScale,
                                         Compose)
 
 
+def set_transforms12(phase, opt, mean=0, std=1, ninput_channels=5):
+
+    general_transformer = [NormalizeScale(),
+                               SetX(opt.input_nc)]
+
+    if phase in ['compute_mean_std']:
+        return Compose(general_transformer)
+    else:
+        return Compose(general_transformer +
+                       [NormalizeFeature(mean, std, ninput_channels)])
+
+
 def set_transforms11(phase, opt, mean=0, std=1, ninput_channels=5):
 
     graph_transformer = \

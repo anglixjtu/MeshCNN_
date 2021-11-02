@@ -333,3 +333,18 @@ class Rotate(object):
     def __repr__(self):
         return '{}({}, axis={})'.format(self.__class__.__name__, self.degrees,
                                         self.axis)
+
+
+class FromTrimesh(object):
+
+    def __call__(self, mesh):
+        r"""Converts a :obj:`trimesh.Trimesh` to a
+        :class:`torch_geometric.data.Data` instance.
+
+        Args:
+        mesh (trimesh.Trimesh): A :obj:`trimesh` mesh.
+        """
+        pos = torch.from_numpy(mesh.vertices).to(torch.float)
+        face = torch.from_numpy(mesh.faces).t().contiguous()
+
+        return Data(pos=pos, face=face)

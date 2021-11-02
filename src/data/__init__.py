@@ -1,6 +1,12 @@
 from torch_geometric.data import DataLoader
 from src import util
-from .transforms import (SampleMesh)
+from .transforms import (SampleMesh,
+                         FromTrimesh,
+                         ConstructEdgeGraph,
+                         NormalizeFeature,
+                         SetX,
+                         SetY)
+from torch_geometric.transforms import (Compose)
 from .transform_recipes import *
 import os
 import numpy as np
@@ -14,7 +20,16 @@ def create_dataloader(opt, phase, namelist=None):
     namelist_file = opt.namelist_file
     root = opt.dataroot
     aug_method = 'set_transforms' + opt.aug_method
-    pre_transform = SampleMesh(opt.ninput_edges / 1.5)
+    pre_transform = Compose([SampleMesh(opt.ninput_edges / 1.5),
+                             FromTrimesh(),
+                             NormalizeRotation(),
+                             NormalizeScale(),
+                             ConstructEdgeGraph(ninput_edges=opt.ninput_edges,
+                                                num_aug=1,
+                                                neigbs=opt.neigbs,
+                                                len_feature=opt.len_feature,
+                                                input_nc=opt.input_nc),
+                             SetY(mode=opt.mode, input_nc=opt.input_nc)])
 
     # compute mean and std (augmentation closed by setting num_aug=1)
     transform = eval(aug_method)('compute_mean_std', opt)
